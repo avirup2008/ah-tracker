@@ -1,0 +1,197 @@
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,600;0,700;1,400;1,600&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Bricolage+Grotesque:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════
+   DESIGN TOKENS — LIGHT (Warm Analyst)
+═══════════════════════════════════════════════════════════ */
+:root {
+  /* Backgrounds */
+  --bg:       #FAF7F1;
+  --surface:  #FFFFFF;
+  --surface2: #F4EFE6;
+  --surface3: #EDE5D8;
+
+  /* Borders */
+  --border:   #E4D9C8;
+  --border2:  #D4C5AE;
+
+  /* Brand */
+  --primary:       #132C53;
+  --primary-dim:   rgba(19,44,83,0.07);
+  --primary-light: #EAF0FB;
+  --accent:        #BF7A18;
+  --accent-dim:    rgba(191,122,24,0.08);
+
+  /* Semantic */
+  --warn:      #B83820;
+  --warn-dim:  rgba(184,56,32,0.07);
+  --good:      #1A6B3A;
+  --good-dim:  rgba(26,107,58,0.07);
+  --info-dim:  rgba(19,44,83,0.06);
+
+  /* Text */
+  --text:   #1A1208;
+  --text-2: #3A2C18;
+  --text-3: #7A6A50;
+  --text-4: #AE9E86;
+
+  /* Header */
+  --header-bg:     #132C53;
+  --header-border: #1E3D70;
+
+  /* Typography */
+  --font-display: 'Lora', serif;
+  --font-body:    'IBM Plex Sans', sans-serif;
+  --font-mono:    'IBM Plex Mono', monospace;
+
+  /* Gauge */
+  --gauge-track: #E4D9C8;
+  --gauge-fill:  linear-gradient(90deg, #132C53, #1E4A80);
+
+  /* Charts */
+  --chart-line: #BF7A18;
+
+  /* Radius */
+  --radius:    10px;
+  --radius-sm: 6px;
+
+  /* Shadows */
+  --card-shadow: 0 1px 3px rgba(20,10,0,0.05), 0 6px 24px rgba(20,10,0,0.07);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DESIGN TOKENS — DARK (Midnight Carbon)
+═══════════════════════════════════════════════════════════ */
+.dark {
+  --bg:       #0C0E14;
+  --surface:  #131620;
+  --surface2: #191D2E;
+  --surface3: #1F2438;
+
+  --border:   #252B40;
+  --border2:  #2E3650;
+
+  --primary:       #FFB547;
+  --primary-dim:   rgba(255,181,71,0.08);
+  --primary-light: rgba(255,181,71,0.12);
+  --accent:        #FFB547;
+  --accent-dim:    rgba(255,181,71,0.08);
+
+  --warn:      #FF5F7E;
+  --warn-dim:  rgba(255,95,126,0.08);
+  --good:      #4ADE80;
+  --good-dim:  rgba(74,222,128,0.07);
+  --info-dim:  rgba(124,158,255,0.06);
+
+  --text:   #F0F2FF;
+  --text-2: #C0C8E8;
+  --text-3: #7080A8;
+  --text-4: #3D4860;
+
+  --header-bg:     #0E1018;
+  --header-border: #1C2236;
+
+  --font-display: 'Bricolage Grotesque', sans-serif;
+  --font-body:    'Outfit', sans-serif;
+  --font-mono:    'IBM Plex Mono', monospace;
+
+  --gauge-track: #1F2438;
+  --gauge-fill:  linear-gradient(90deg, #E09030, #FFB547);
+
+  --chart-line: #FFB547;
+
+  --radius:    14px;
+  --radius-sm: 8px;
+
+  --card-shadow: 0 0 0 1px rgba(255,181,71,0.03), 0 8px 40px rgba(0,0,0,0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BASE
+═══════════════════════════════════════════════════════════ */
+* { box-sizing: border-box; }
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+}
+
+/* Smooth theme transitions */
+*, *::before, *::after {
+  transition:
+    background-color 0.3s ease,
+    border-color     0.3s ease,
+    color            0.2s ease;
+}
+/* Except layout properties */
+.no-transition { transition: none !important; }
+
+/* ═══════════════════════════════════════════════════════════
+   COMPONENT UTILITIES
+═══════════════════════════════════════════════════════════ */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
+}
+
+.card-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+
+.display-num {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+/* Gauge */
+.gauge-track {
+  height: 7px;
+  background: var(--gauge-track);
+  border-radius: 100px;
+  overflow: hidden;
+}
+.gauge-fill {
+  height: 100%;
+  background: var(--gauge-fill);
+  border-radius: 100px;
+  transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+}
+.dark .gauge-fill {
+  box-shadow: 0 0 10px rgba(255,181,71,0.3);
+}
+
+/* Insight pills */
+.insight-warn { background: var(--warn-dim); border: 1px solid color-mix(in srgb, var(--warn) 20%, transparent); }
+.insight-good { background: var(--good-dim); border: 1px solid color-mix(in srgb, var(--good) 15%, transparent); }
+.insight-info { background: var(--info-dim); border: 1px solid color-mix(in srgb, var(--primary) 12%, transparent); }
+.insight-accent { background: var(--accent-dim); border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 100px; }
