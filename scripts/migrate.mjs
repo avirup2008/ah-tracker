@@ -1,53 +1,150 @@
 // scripts/migrate.mjs
-// Run with: node scripts/migrate.mjs
-import { readFileSync } from 'fs'
+import { readFileSync, existsSync } from 'fs'
 import { neon } from '@neondatabase/serverless'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { config } from 'process'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-// Load .env.local manually
-import { existsSync } from 'fs'
+// Load .env.local
 const envPath = join(__dirname, '..', '.env.local')
 if (existsSync(envPath)) {
   const lines = readFileSync(envPath, 'utf-8').split('\n')
   for (const line of lines) {
-    const [key, ...rest] = line.split('=')
-    if (key && rest.length && !key.startsWith('#')) {
-      process.env[key.trim()] = rest.join('=').trim().replace(/^"|"$/g, '')
-    }
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const eqIdx = trimmed.indexOf('=')
+    if (eqIdx === -1) continue
+    const key = trimmed.slice(0, eqIdx).trim()
+    const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '')
+    if (key && !process.env[key]) process.env[key] = val
   }
   console.log('✓ Loaded .env.local')
 }
 
 const url = process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL
-if (!url) {
+if (!url || url.includes('placeholder')) {
   console.error('✗ POSTGRES_URL not set in .env.local')
   process.exit(1)
 }
 
 const sql = neon(url)
-const schema = readFileSync(join(__dirname, '..', 'drizzle', 'schema.sql'), 'utf-8')
 
-console.log('Running migration...')
-try {
-  // Split on semicolons and run each statement
-  const statements = schema
-    .split(';')
-    .map(s => s.trim())
-    .filter(s => s.length > 0 && !s.startsWith('--'))
+// Run each CREATE TABLE individually so we can handle errors properly
+const tables = [
+  `CREATE TABLE IF NOT EXISTS store_locations (
+    store_id    TEXT PRIMARY KEY,
+    store_name  TEXT NOT NULL,
+    city        TEXT,
+    is_to_go    BOOLEAN DEFAULT false
+  )`,
 
-  for (const stmt of statements) {
-    if (stmt.trim()) {
-      await sql.unsafe(stmt)
-      const firstLine = stmt.split('\n')[0].substring(0, 60)
-      console.log(`  ✓ ${firstLine}...`)
+  `INSERT INTO store_locations (store_id, store_name, city, is_to_go) VALUES
+    ('1251', 'Beverhof', 'Beverwijk', false),
+    ('5805', 'AH to go', NULL, true),
+    ('5609', 'Unknown AH location', NULL, false),
+    ('8755', 'Unknown AH location', NULL, false),
+    ('5606', 'Unknown AH location', NULL, false),
+    ('1653', 'Unknown AH location', NULL, false),
+    ('5833', 'Unknown AH location', NULL, false),
+    ('5885', 'Unknown AH location', NULL, false),
+    ('1379', 'Unknown AH location', NULL, false)
+  ON CONFLICT (store_id) DO NOTHING`,
+
+  `CREATE TABLE IF NOT EXISTS receipts (
+    id                  SERIAL PRIMARY KEY,
+    filename            TEXT UNIQUE NOT NULL,
+    blob_url            TEXT NOT NULL,
+    store_id            TEXT REFERENCES store_locations(store_id),
+    receipt_date        DATE NOT NULL,
+    receipt_time        TIME,
+    year                INTEGER NOT NULL,
+    month               INTEGER NOT NULL,
+    week_saturday       DATE NOT NULL,
+    item_count          INTEGER,
+    subtotal            NUMERIC(8,2),
+    bonus_savings       NUMERIC(8,2)  DEFAULT 0,
+    koopzegels          NUMERIC(8,2)  DEFAULT 0,
+    statiegeld          NUMERIC(8,2)  DEFAULT 0,
+    net_grocery_spend   NUMERIC(8,2),
+    total_paid          NUMERIC(8,2),
+    payment_method      TEXT,
+    parsed              BOOLEAN       DEFAULT false,
+    parse_error         TEXT,
+    raw_text            TEXT,
+    created_at          TIMESTAMPTZ   DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ   DEFAULT NOW()
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS receipt_items (
+    id              SERIAL PRIMARY KEY,
+    receipt_id      INTEGER NOT NULL REFERENCES receipts(id) ON DELETE CASCADE,
+    quantity        NUMERIC(6,2)  NOT NULL DEFAULT 1,
+    raw_name        TEXT          NOT NULL,
+    clean_name      TEXT,
+    category        TEXT,
+    subcategory     TEXT,
+    unit_price      NUMERIC(8,2),
+    total_price     NUMERIC(8,2)  NOT NULL,
+    is_bonus_item   BOOLEAN       DEFAULT false,
+    is_statiegeld   BOOLEAN       DEFAULT false,
+    is_koopzegel    BOOLEAN       DEFAULT false,
+    is_non_food     BOOLEAN       DEFAULT false,
+    btw_rate        INTEGER,
+    created_at      TIMESTAMPTZ   DEFAULT NOW()
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS meal_plans (
+    id              SERIAL PRIMARY KEY,
+    week_saturday   DATE          NOT NULL,
+    generated_by    TEXT          DEFAULT 'ai',
+    meals_json      JSONB         NOT NULL,
+    shopping_list   JSONB,
+    estimated_cost  NUMERIC(8,2),
+    actual_cost     NUMERIC(8,2),
+    notes           TEXT,
+    created_at      TIMESTAMPTZ   DEFAULT NOW()
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS ah_deals_cache (
+    id          SERIAL PRIMARY KEY,
+    fetched_at  TIMESTAMPTZ   DEFAULT NOW(),
+    expires_at  TIMESTAMPTZ   NOT NULL,
+    deals_json  JSONB         NOT NULL
+  )`,
+
+  `CREATE INDEX IF NOT EXISTS receipts_date_idx   ON receipts(receipt_date)`,
+  `CREATE INDEX IF NOT EXISTS receipts_year_idx   ON receipts(year, month)`,
+  `CREATE INDEX IF NOT EXISTS receipts_week_idx   ON receipts(week_saturday)`,
+  `CREATE INDEX IF NOT EXISTS items_receipt_idx   ON receipt_items(receipt_id)`,
+  `CREATE INDEX IF NOT EXISTS items_category_idx  ON receipt_items(category)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS meal_plans_week_idx ON meal_plans(week_saturday)`,
+
+  `CREATE OR REPLACE FUNCTION get_week_saturday(d DATE)
+   RETURNS DATE AS $$
+     SELECT d - ((EXTRACT(DOW FROM d)::INTEGER + 1) % 7)
+   $$ LANGUAGE SQL IMMUTABLE`,
+]
+
+console.log(`Running ${tables.length} statements...\n`)
+let ok = 0, failed = 0
+
+for (const stmt of tables) {
+  const preview = stmt.replace(/\s+/g, ' ').slice(0, 55)
+  try {
+    await sql(stmt)
+    console.log(`  ✓ ${preview}`)
+    ok++
+  } catch (err) {
+    if (err.message?.includes('already exists') || err.message?.includes('duplicate')) {
+      console.log(`  ~ ${preview} (skipped — exists)`)
+      ok++
+    } else {
+      console.log(`  ✗ ${preview}\n    ${err.message}`)
+      failed++
     }
   }
-  console.log('\n✅ Migration complete!')
-} catch (err) {
-  console.error('✗ Migration failed:', err.message)
-  process.exit(1)
 }
+
+console.log(`\n${failed === 0 ? '✅' : '⚠️'} Done — ${ok} ok, ${failed} failed`)
+if (failed === 0) console.log('\nDatabase is ready! Now run the bulk uploader.')
