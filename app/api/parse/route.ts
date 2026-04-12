@@ -5,6 +5,7 @@ import { categoriseItems } from '@/lib/claude'
 import { format } from 'date-fns'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 export const maxDuration = 120 // parsing can take time for large batches
 
 // Dynamically import pdf-parse to avoid edge runtime issues
@@ -150,7 +151,7 @@ export async function GET() {
     return NextResponse.json({ message: 'No unparsed receipts' })
   }
 
-  const ids = unparsed.map((r: { id: number }) => r.id)
+  const ids = unparsed.map((r: Record<string, unknown>) => r.id as number)
 
   // Delegate to POST handler
   const req = new Request(`${process.env.NEXT_PUBLIC_APP_URL}/api/parse`, {

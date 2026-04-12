@@ -7,10 +7,12 @@ const MODEL = 'gemini-2.0-flash'
 
 // ─── Helper — ask Gemini, return text ──────────────────────────
 async function ask(prompt: string, useSearch = false): Promise<string> {
-  const model = genAI.getGenerativeModel({
-    model: MODEL,
-    ...(useSearch ? { tools: [{ googleSearch: {} }] } : {}),
-  })
+  const modelConfig: Record<string, unknown> = { model: MODEL }
+  if (useSearch) {
+    modelConfig.tools = [{ googleSearch: {} }]
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const model = genAI.getGenerativeModel(modelConfig as any)
   const result = await model.generateContent(prompt)
   return result.response.text()
 }

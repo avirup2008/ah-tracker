@@ -1,6 +1,7 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.POSTGRES_URL!)
+// Use a placeholder during build — real URL is injected at runtime by Vercel
+const sql = neon(process.env.POSTGRES_URL ?? 'postgresql://build:build@localhost/build')
 
 export default sql
 

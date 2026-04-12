@@ -3,6 +3,7 @@ import sql from '@/lib/db'
 import { fetchAhDeals } from '@/lib/claude'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 export async function GET() {
