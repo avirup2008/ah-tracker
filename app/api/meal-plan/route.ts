@@ -65,11 +65,11 @@ export async function POST(req: NextRequest) {
       ORDER BY week_saturday DESC LIMIT 2
     `
     const previousPlans = prevPlans.length > 0
-      ? prevPlans.map((p: { meals_json: { lunches?: { name: string }[], dinners?: { name: string }[] } }) => {
+      ? prevPlans.map((p: Record<string, unknown>) => {
           const meals = p.meals_json as { lunches?: { name: string }[], dinners?: { name: string }[] }
           return [
-            ...(meals.lunches?.map((m: { name: string }) => m.name) ?? []),
-            ...(meals.dinners?.map((m: { name: string }) => m.name) ?? []),
+            ...(meals?.lunches?.map((m: { name: string }) => m.name) ?? []),
+            ...(meals?.dinners?.map((m: { name: string }) => m.name) ?? []),
           ].join(', ')
         }).join(' | ')
       : undefined
