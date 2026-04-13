@@ -9,23 +9,42 @@ export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
   try {
-    const { receiptId, rawText } = await req.json() as {
+    const { receiptId, rawText, skipCategorisation } = await req.json() as {
       receiptId: number
       rawText: string
+      skipCategorisation?: boolean
     }
 
     if (!receiptId || !rawText) {
       return NextResponse.json({ error: 'receiptId and rawText required' }, { status: 400 })
     }
 
+    // Parse receipt structure from text
     const parsed = parseReceiptText(rawText, rawText)
     if (!parsed) {
       await sql`UPDATE receipts SET parse_error='Could not parse structure', updated_at=NOW() WHERE id=${receiptId}`
       return NextResponse.json({ status: 'parse_error' })
     }
 
-    const categorised = await categoriseItems(parsed.items)
+    // Try Gemini categorisation — gracefully skip on rate limit
+    let categorised: Awaited<ReturnType<typeof categoriseItems>> = []
+    let categorisationSkipped = false
 
+    if (!skipCategorisation && parsed.items.length > 0) {
+      try {
+        categorised = await categoriseItems(parsed.items)
+      } catch (catErr) {
+        const msg = catErr instanceof Error ? catErr.message : ''
+        if (msg.includes('429') || msg.includes('quota') || msg.includes('rate')) {
+          categorisationSkipped = true
+          // Continue without categories — will categorise later
+        } else {
+          throw catErr // re-throw non-quota errors
+        }
+      }
+    }
+
+    // Save receipt totals
     await sql`
       UPDATE receipts SET
         item_count        = ${parsed.itemCount},
@@ -43,6 +62,7 @@ export async function POST(req: NextRequest) {
       WHERE id = ${receiptId}
     `
 
+    // Save line items (with or without categories)
     await sql`DELETE FROM receipt_items WHERE receipt_id = ${receiptId}`
 
     for (const item of parsed.items) {
@@ -67,6 +87,7 @@ export async function POST(req: NextRequest) {
       itemCount: parsed.itemCount,
       total: parsed.totalPaid,
       bonusSavings: parsed.bonusSavings,
+      categorisationSkipped,
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
