@@ -27,7 +27,7 @@ export function BudgetCard({
       <div>
         <div className="display-num" style={{ fontSize: 46 }}>
           <span style={{ fontSize: 22, fontWeight: 400, color: 'var(--text-3)' }}>€</span>
-          {weekSpend.toFixed(2).replace('.', ',')}
+          {Number(weekSpend).toFixed(2).replace('.', ',')}
         </div>
         <div className="mt-1" style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)' }}>
           of <strong style={{ color: 'var(--text-2)' }}>{formatEuro(weekBudget)}</strong> target

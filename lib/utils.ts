@@ -7,9 +7,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatEuro(amount: number | null | undefined): string {
-  if (amount == null) return '—'
-  return `€${amount.toFixed(2).replace('.', ',')}`
+export function formatEuro(amount: number | string | null | undefined): string {
+  if (amount == null || amount === '') return '—'
+  const n = typeof amount === 'string' ? parseFloat(amount) : amount
+  if (isNaN(n)) return '—'
+  return `€${n.toFixed(2).replace('.', ',')}`
 }
 
 export function formatDate(dateStr: string | Date | null | undefined, fmt = 'd MMM yyyy'): string {
