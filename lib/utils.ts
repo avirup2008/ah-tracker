@@ -12,11 +12,13 @@ export function formatEuro(amount: number | null | undefined): string {
   return `€${amount.toFixed(2).replace('.', ',')}`
 }
 
-export function formatDate(dateStr: string, fmt = 'd MMM yyyy'): string {
+export function formatDate(dateStr: string | Date | null | undefined, fmt = 'd MMM yyyy'): string {
+  if (!dateStr) return '—'
   try {
-    return format(parseISO(dateStr), fmt, { locale: nl })
+    const date = dateStr instanceof Date ? dateStr : parseISO(String(dateStr).slice(0, 10))
+    return format(date, fmt, { locale: nl })
   } catch {
-    return dateStr
+    return String(dateStr).slice(0, 10)
   }
 }
 

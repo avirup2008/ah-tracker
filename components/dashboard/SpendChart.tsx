@@ -22,11 +22,22 @@ export function SpendChart({ data, weekBudget }: Props) {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
-  const chartData = data.map(w => ({
-    week: format(parseISO(w.week_saturday), 'MMM d'),
-    spend: Math.round(Number(w.total_spend) * 100) / 100,
-    receipts: Number(w.receipt_count),
-  }))
+  const chartData = data
+    .filter(w => w.week_saturday)
+    .map(w => {
+      let weekLabel = ''
+      try {
+        const dateStr = String(w.week_saturday).slice(0, 10)
+        weekLabel = format(parseISO(dateStr), 'MMM d')
+      } catch {
+        weekLabel = String(w.week_saturday).slice(5, 10)
+      }
+      return {
+        week: weekLabel,
+        spend: Math.round(Number(w.total_spend) * 100) / 100,
+        receipts: Number(w.receipt_count),
+      }
+    })
 
   const avg = chartData.length
     ? Math.round((chartData.reduce((s, d) => s + d.spend, 0) / chartData.length) * 100) / 100
