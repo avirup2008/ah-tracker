@@ -77,9 +77,19 @@ export async function GET(req: NextRequest) {
 
     // ── B: Brand switching ─────────────────────────────────────
     if (feature === 'all' || feature === 'brand-switch') {
+      // Compare total AH own-brand spend vs A-brand spend overall
+      // Group into broad buckets: Dairy, Meat, Bakery, Drinks, Snacks, Other
       const rows = await sql`
         SELECT
-          COALESCE(ri.category, LEFT(ri.raw_name, 12))           AS category,
+          CASE
+            WHEN ri.raw_name ~* '(melk|yogh|kaas|room|boter|eier|zuivel)' THEN 'Zuivel & Eieren'
+            WHEN ri.raw_name ~* '(kip|vlees|vis|spek|gehakt|kalkoen|zalm)' THEN 'Vlees & Vis'
+            WHEN ri.raw_name ~* '(brood|wrap|cracker|beschuit|rogge)' THEN 'Brood & Bakkerij'
+            WHEN ri.raw_name ~* '(cola|fanta|spa|juice|sap|water|bier|wijn|koffie|thee)' THEN 'Dranken'
+            WHEN ri.raw_name ~* '(chips|noten|pinda|koek|chocola|snoep|drop)' THEN 'Snacks'
+            WHEN ri.raw_name ~* '(pasta|rijst|noodle|meel|havermout)' THEN 'Granen'
+            ELSE 'Overig'
+          END AS category,
           ROUND(SUM(CASE WHEN ri.raw_name LIKE 'AH %'
             THEN ri.total_price ELSE 0 END)::numeric, 2)         AS own_brand_spend,
           ROUND(SUM(CASE WHEN ri.raw_name NOT LIKE 'AH %'
@@ -91,12 +101,11 @@ export async function GET(req: NextRequest) {
         WHERE r.parsed = true
           AND ri.raw_name NOT IN ('SUBTOTAAL','KOOPZEGELS')
           AND ri.is_statiegeld = false AND ri.is_koopzegel = false
-        GROUP BY COALESCE(ri.category, LEFT(ri.raw_name, 12))
+        GROUP BY 1
         HAVING
-          COUNT(CASE WHEN ri.raw_name LIKE 'AH %' THEN 1 END) > 0
-          AND COUNT(CASE WHEN ri.raw_name NOT LIKE 'AH %' THEN 1 END) > 0
-          AND SUM(ri.total_price) > 5
-        ORDER BY abrand_spend DESC
+          SUM(CASE WHEN ri.raw_name LIKE 'AH %' THEN ri.total_price ELSE 0 END) > 0
+          AND SUM(CASE WHEN ri.raw_name NOT LIKE 'AH %' THEN ri.total_price ELSE 0 END) > 0
+        ORDER BY (own_brand_spend + abrand_spend) DESC
         LIMIT 10
       `
       data.brandSwitch = plain(rows)
