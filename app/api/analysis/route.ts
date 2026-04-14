@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
         HAVING
           SUM(CASE WHEN ri.raw_name LIKE 'AH %' THEN ri.total_price ELSE 0 END) > 0
           AND SUM(CASE WHEN ri.raw_name NOT LIKE 'AH %' THEN ri.total_price ELSE 0 END) > 0
-        ORDER BY (own_brand_spend + abrand_spend) DESC
+        ORDER BY (SUM(CASE WHEN ri.raw_name LIKE 'AH %' THEN ri.total_price ELSE 0 END) + SUM(CASE WHEN ri.raw_name NOT LIKE 'AH %' THEN ri.total_price ELSE 0 END)) DESC
         LIMIT 10
       `
       data.brandSwitch = plain(rows)
