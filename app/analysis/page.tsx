@@ -7,6 +7,7 @@ import {
   ResponsiveContainer, LineChart, Line, Legend
 } from 'recharts'
 import { useTheme } from 'next-themes'
+import OverviewTab from '@/components/analysis/OverviewTab'
 
 type Feature = 'overview' | 'inflation' | 'brand' | 'waste' | 'seasonality' | 'forecast'
 
@@ -73,80 +74,8 @@ export default function AnalysisPage() {
         </div>
       ) : (
         <>
-          {/* ── A: Overview (categories + anomaly) ────────────── */}
-          {active === 'overview' && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="card p-5">
-                <div className="card-label">Spend by Category — This Month</div>
-                {(data.categories as CategoryRow[] ?? []).length === 0 ? (
-                  <EmptyState />
-                ) : (
-                  <div style={{ height: 280, marginTop: 8 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={(data.categories as CategoryRow[]).map(c => ({
-                          name: (c.category ?? '').split(' (')[0].split(' & ')[0],
-                          value: Math.round(Number(c.total) * 100) / 100,
-                        }))}
-                        layout="vertical"
-                        margin={{ left: 0, right: 20 }}
-                      >
-                        <CartesianGrid horizontal={false} stroke={gridColor} />
-                        <XAxis type="number" tick={{ fontSize: 9, fill: textColor, fontFamily: 'IBM Plex Mono' }} tickFormatter={v => `€${v}`} axisLine={false} tickLine={false} />
-                        <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 10, fill: textColor, fontFamily: 'var(--font-body)' }} axisLine={false} tickLine={false} />
-                        <Tooltip
-                          contentStyle={{ background: isDark ? '#131620' : '#fff', border: `1px solid ${gridColor}`, borderRadius: 8, fontSize: 12, fontFamily: 'IBM Plex Mono' }}
-                          formatter={(v: number) => [`€${v.toFixed(2)}`, 'Spend']}
-                        />
-                        <Bar dataKey="value" fill={accentColor} radius={[0, 4, 4, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </div>
-
-              {/* F: Anomaly */}
-              <div className="card p-5">
-                <div className="card-label">Spend Anomaly Detector</div>
-                {!(data.anomaly as AnomalyData)?.weeklySpend?.length ? (
-                  <EmptyState />
-                ) : (
-                  <>
-                    <div className="grid grid-cols-3 gap-3 mb-5">
-                      {[
-                        { label: 'Weekly average', value: formatEuro((data.anomaly as AnomalyData).average) },
-                        { label: 'Std deviation',  value: formatEuro((data.anomaly as AnomalyData).stddev) },
-                        { label: 'Anomalous weeks', value: String((data.anomaly as AnomalyData).anomalies?.length ?? 0) },
-                      ].map(s => (
-                        <div key={s.label} className="rounded-[var(--radius-sm)] p-3 border" style={{ background: 'var(--surface2)', borderColor: 'var(--border)' }}>
-                          <div className="mono" style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>{s.value}</div>
-                          <div style={{ fontSize: 10, color: 'var(--text-4)', marginTop: 2 }}>{s.label}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ height: 180 }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={(data.anomaly as AnomalyData).weeklySpend?.map((w: WeekSpend) => ({
-                          week: w.week_saturday?.slice(5),
-                          spend: Math.round(Number(w.total_spend) * 100) / 100,
-                          isAnomaly: Number(w.total_spend) > (data.anomaly as AnomalyData).average + (data.anomaly as AnomalyData).stddev,
-                        }))}>
-                          <CartesianGrid vertical={false} stroke={gridColor} />
-                          <XAxis dataKey="week" tick={{ fontSize: 8, fill: textColor, fontFamily: 'IBM Plex Mono' }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize: 8, fill: textColor, fontFamily: 'IBM Plex Mono' }} tickFormatter={v => `€${v}`} axisLine={false} tickLine={false} />
-                          <Tooltip contentStyle={{ background: isDark ? '#131620' : '#fff', border: `1px solid ${gridColor}`, borderRadius: 8, fontSize: 11, fontFamily: 'IBM Plex Mono' }} />
-                          <Bar dataKey="spend" radius={[3, 3, 0, 0]}
-                            fill={accentColor}
-                            label={false}
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
+          {/* ── Overview ──────────────────────────────────────── */}
+          {active === 'overview' && <OverviewTab />}
 
           {/* ── A: Inflation tracker ─────────────────────────── */}
           {active === 'inflation' && (
