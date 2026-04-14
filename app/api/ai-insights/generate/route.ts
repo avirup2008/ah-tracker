@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     const apiKey = process.env.GOOGLE_API_KEY
     if (!apiKey) return NextResponse.json({ error: 'GOOGLE_API_KEY not set' }, { status: 500 })
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`
 
     const res = await fetch(url, {
       method: 'POST',

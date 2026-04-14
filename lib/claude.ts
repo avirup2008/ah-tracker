@@ -3,7 +3,7 @@ import type { ParsedItem } from './parser'
 import type { MealPlanData, AhDeal } from './db'
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!)
-const MODEL = 'gemini-2.0-flash'
+const MODEL = 'gemini-2.5-flash-lite'
 
 // ─── Helper — ask Gemini, return text ──────────────────────────
 async function ask(prompt: string, useSearch = false): Promise<string> {
