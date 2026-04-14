@@ -22,9 +22,21 @@ export async function GET(req: NextRequest) {
     // ── A: Inflation ───────────────────────────────────────────
     if (feature === 'all' || feature === 'inflation') {
       const rows = await sql`
-        WITH item_prices AS (
+        WITH purchase_counts AS (
           SELECT
-            COALESCE(ri.clean_name, ri.raw_name)       AS item_name,
+            COALESCE(ri.clean_name, ri.raw_name) AS item_name,
+            COUNT(DISTINCT ri.receipt_id)        AS purchase_count
+          FROM receipt_items ri
+          JOIN receipts r ON ri.receipt_id = r.id
+          WHERE ri.unit_price IS NOT NULL AND r.parsed = true
+            AND ri.raw_name NOT IN ('SUBTOTAAL','KOOPZEGELS')
+            AND ri.is_statiegeld = false AND ri.is_koopzegel = false
+          GROUP BY COALESCE(ri.clean_name, ri.raw_name)
+          HAVING COUNT(DISTINCT ri.receipt_id) >= 3
+        ),
+        item_prices AS (
+          SELECT
+            COALESCE(ri.clean_name, ri.raw_name) AS item_name,
             ri.category,
             ri.unit_price,
             r.receipt_date,
@@ -35,26 +47,24 @@ export async function GET(req: NextRequest) {
             ROW_NUMBER() OVER (
               PARTITION BY COALESCE(ri.clean_name, ri.raw_name)
               ORDER BY r.receipt_date DESC
-            ) AS rn_desc,
-            COUNT(DISTINCT ri.receipt_id) OVER (
-              PARTITION BY COALESCE(ri.clean_name, ri.raw_name)
-            ) AS purchase_count
+            ) AS rn_desc
           FROM receipt_items ri
           JOIN receipts r ON ri.receipt_id = r.id
+          JOIN purchase_counts pc ON COALESCE(ri.clean_name, ri.raw_name) = pc.item_name
           WHERE ri.unit_price IS NOT NULL AND r.parsed = true
             AND ri.raw_name NOT IN ('SUBTOTAAL','KOOPZEGELS')
             AND ri.is_statiegeld = false AND ri.is_koopzegel = false
         )
         SELECT
-          item_name       AS clean_name,
-          category,
-          purchase_count,
-          MAX(CASE WHEN rn_asc  = 1 THEN unit_price END) AS first_price,
-          MAX(CASE WHEN rn_desc = 1 THEN unit_price END) AS latest_price
-        FROM item_prices
-        WHERE purchase_count >= 3
-        GROUP BY item_name, category, purchase_count
-        ORDER BY purchase_count DESC
+          ip.item_name     AS clean_name,
+          ip.category,
+          pc.purchase_count,
+          MAX(CASE WHEN ip.rn_asc  = 1 THEN ip.unit_price END) AS first_price,
+          MAX(CASE WHEN ip.rn_desc = 1 THEN ip.unit_price END) AS latest_price
+        FROM item_prices ip
+        JOIN purchase_counts pc ON ip.item_name = pc.item_name
+        GROUP BY ip.item_name, ip.category, pc.purchase_count
+        ORDER BY pc.purchase_count DESC
         LIMIT 20
       `
       data.inflation = plain(rows).map((row: Record<string, unknown>) => ({
