@@ -125,35 +125,95 @@ export default function AnalysisPage() {
 
           {/* ── B: Brand switching ───────────────────────────── */}
           {active === 'brand' && (
-            <div className="card p-5">
-              <div className="card-label">Brand Switching — AH Own Brand vs A-Brand</div>
-              <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 20, fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-                Items starting with "AH" are own-brand (Eigen Merk). Switching to A-brands costs more — this shows where the gap is biggest.
-              </p>
-              {!(data.brandSwitch as BrandRow[])?.length ? (
-                <EmptyState message="Not enough data yet — parse more receipts" />
-              ) : (
-                <div style={{ height: 320 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={(data.brandSwitch as BrandRow[]).map(r => ({
-                        category: catLabel(r.category).replace(' (', '\n('),
-                        'AH Own Brand': Math.round(Number(r.own_brand_spend) * 100) / 100,
-                        'A-Brand':      Math.round(Number(r.abrand_spend) * 100) / 100,
-                      }))}
-                      margin={{ left: 0, right: 10 }}
-                    >
-                      <CartesianGrid vertical={false} stroke={gridColor} />
-                      <XAxis dataKey="category" tick={{ fontSize: 10, fill: textColor }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 9, fill: textColor, fontFamily: 'IBM Plex Mono' }} tickFormatter={v => `€${v}`} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={{ background: isDark ? '#131620' : '#fff', border: `1px solid ${gridColor}`, borderRadius: 8, fontSize: 12, fontFamily: 'IBM Plex Mono' }} formatter={(v: number) => [`€${v.toFixed(2)}`]} />
-                      <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'var(--font-body)' }} />
-                      <Bar dataKey="AH Own Brand" fill={goodColor}   radius={[3, 3, 0, 0]} />
-                      <Bar dataKey="A-Brand"      fill={warnColor}   radius={[3, 3, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
+            <div className="flex flex-col gap-4">
+              <div className="card p-5">
+                <div className="card-label">Brand Switching — AH Own Brand vs A-Brand</div>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 20, fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                  Spend split between AH own-brand (cheaper) and A-brands per category — all time.
+                  The gap shows where switching to AH own-brand would save the most.
+                </p>
+                {!(data.brandSwitch as BrandRow[])?.length ? (
+                  <EmptyState message="Not enough data yet" />
+                ) : (
+                  <div style={{ height: 300 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={(data.brandSwitch as BrandRow[])
+                          .filter(r => r.category !== 'Overig')
+                          .map(r => ({
+                            category: catLabel(r.category).replace(' (', '\n('),
+                            'AH Own Brand': Math.round(Number(r.own_brand_spend) * 100) / 100,
+                            'A-Brand':      Math.round(Number(r.abrand_spend) * 100) / 100,
+                          }))}
+                        margin={{ left: 0, right: 10 }}
+                      >
+                        <CartesianGrid vertical={false} stroke={gridColor} />
+                        <XAxis dataKey="category" tick={{ fontSize: 10, fill: textColor }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 9, fill: textColor, fontFamily: 'IBM Plex Mono' }} tickFormatter={v => `€${v}`} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={{ background: isDark ? '#131620' : '#fff', border: `1px solid ${gridColor}`, borderRadius: 8, fontSize: 12, fontFamily: 'IBM Plex Mono' }} formatter={(v: number) => [`€${v.toFixed(2)}`]} />
+                        <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'var(--font-body)' }} />
+                        <Bar dataKey="AH Own Brand" fill={goodColor}   radius={[3, 3, 0, 0]} />
+                        <Bar dataKey="A-Brand"      fill={warnColor}   radius={[3, 3, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+
+              {/* Switch recommendations table */}
+              <div className="card p-5">
+                <div className="card-label">Switch Recommendations — Items to Replace with AH Own Brand</div>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 16, fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                  A-brand items you buy 3+ times where an AH own-brand equivalent likely exists.
+                  Sorted by potential annual saving (frequency × price).
+                </p>
+                {!(data.switchItems as SwitchItem[])?.length ? (
+                  <EmptyState message="Not enough repeat purchases to analyse" />
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                        {['A-Brand Item', 'Category', 'Times Bought', 'Avg Price', 'AH Alternative', 'Est. Saving/yr'].map(h => (
+                          <th key={h} style={{ textAlign: 'left', padding: '6px 10px', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-4)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(data.switchItems as SwitchItem[]).map((item, i) => {
+                        const annualFreq = Math.round(Number(item.times) * (52 / 16)) // scale to 1yr
+                        const avgPrice = Number(item.avg_price)
+                        const estAhPrice = Math.round(avgPrice * 0.75 * 100) / 100 // AH own brand ~25% cheaper
+                        const annualSaving = Math.round((avgPrice - estAhPrice) * annualFreq * 100) / 100
+                        return (
+                          <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                            <td style={{ padding: '10px', color: 'var(--text)', fontFamily: 'var(--font-body)', fontWeight: 500 }}>
+                              {item.clean_name ?? item.raw_name}
+                            </td>
+                            <td style={{ padding: '10px', color: 'var(--text-3)', fontSize: 11 }}>
+                              {CATEGORY_ICONS[item.category ?? ''] ?? ''} {catLabel(item.category)}
+                            </td>
+                            <td style={{ padding: '10px', fontFamily: 'var(--font-mono)', color: 'var(--text-2)' }}>
+                              {item.times}×
+                            </td>
+                            <td style={{ padding: '10px', fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+                              {formatEuro(avgPrice)}
+                            </td>
+                            <td style={{ padding: '10px', color: 'var(--text-2)', fontFamily: 'var(--font-body)', fontSize: 11 }}>
+                              AH {(item.clean_name ?? item.raw_name).split(' (')[0].toLowerCase().replace(/^scharrel |^bio /, '')}
+                              <span style={{ color: 'var(--text-4)', fontSize: 10 }}> (~{formatEuro(estAhPrice)})</span>
+                            </td>
+                            <td style={{ padding: '10px' }}>
+                              <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 100, fontWeight: 600, fontFamily: 'var(--font-mono)', background: 'var(--good-dim)', color: goodColor }}>
+                                ~{formatEuro(annualSaving)}/yr
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </div>
           )}
 
@@ -355,6 +415,7 @@ function ForecastView({ forecast, goodColor, warnColor, accentColor }: { forecas
 // Type helpers
 interface CategoryRow { category: string; total: number; item_count: number }
 interface InflationItem { clean_name: string; category: string; first_price: number; latest_price: number; purchase_count: number; pct_change: number | null }
+interface SwitchItem { raw_name: string; clean_name: string; category: string; times: number; avg_price: number }
 interface BrandRow { category: string; own_brand_spend: number; abrand_spend: number; own_brand_count: number; abrand_count: number }
 interface WasteRow { clean_name: string; category: string; purchase_count: number; total_spent: number; avg_qty: number; small_shop_count: number }
 interface AnomalyData { weeklySpend: WeekSpend[]; average: number; stddev: number; anomalies: WeekSpend[] }

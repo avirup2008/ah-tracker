@@ -77,38 +77,53 @@ export async function GET(req: NextRequest) {
 
     // ── B: Brand switching ─────────────────────────────────────
     if (feature === 'all' || feature === 'brand-switch') {
-      // Compare total AH own-brand spend vs A-brand spend overall
-      // Group into broad buckets: Dairy, Meat, Bakery, Drinks, Snacks, Other
+      // Use real Gemini categories — no keyword guessing, no Overig bucket
       const rows = await sql`
         SELECT
-          CASE
-            WHEN ri.raw_name ~* '(melk|yogh|kaas|room|boter|eier|zuivel)' THEN 'Zuivel & Eieren'
-            WHEN ri.raw_name ~* '(kip|vlees|vis|spek|gehakt|kalkoen|zalm)' THEN 'Vlees & Vis'
-            WHEN ri.raw_name ~* '(brood|wrap|cracker|beschuit|rogge)' THEN 'Brood & Bakkerij'
-            WHEN ri.raw_name ~* '(cola|fanta|spa|juice|sap|water|bier|wijn|koffie|thee)' THEN 'Dranken'
-            WHEN ri.raw_name ~* '(chips|noten|pinda|koek|chocola|snoep|drop)' THEN 'Snacks'
-            WHEN ri.raw_name ~* '(pasta|rijst|noodle|meel|havermout)' THEN 'Granen'
-            ELSE 'Overig'
-          END AS category,
+          ri.category,
           ROUND(SUM(CASE WHEN ri.raw_name LIKE 'AH %'
-            THEN ri.total_price ELSE 0 END)::numeric, 2)         AS own_brand_spend,
+            THEN ri.total_price ELSE 0 END)::numeric, 2)          AS own_brand_spend,
           ROUND(SUM(CASE WHEN ri.raw_name NOT LIKE 'AH %'
-            THEN ri.total_price ELSE 0 END)::numeric, 2)         AS abrand_spend,
-          COUNT(CASE WHEN ri.raw_name LIKE 'AH %' THEN 1 END)    AS own_brand_count,
+            THEN ri.total_price ELSE 0 END)::numeric, 2)          AS abrand_spend,
+          COUNT(CASE WHEN ri.raw_name LIKE 'AH %' THEN 1 END)     AS own_brand_count,
           COUNT(CASE WHEN ri.raw_name NOT LIKE 'AH %' THEN 1 END) AS abrand_count
         FROM receipt_items ri
         JOIN receipts r ON ri.receipt_id = r.id
         WHERE r.parsed = true
           AND ri.raw_name NOT IN ('SUBTOTAAL','KOOPZEGELS')
           AND ri.is_statiegeld = false AND ri.is_koopzegel = false
-        GROUP BY 1
+          AND ri.category IS NOT NULL
+        GROUP BY ri.category
         HAVING
           SUM(CASE WHEN ri.raw_name LIKE 'AH %' THEN ri.total_price ELSE 0 END) > 0
           AND SUM(CASE WHEN ri.raw_name NOT LIKE 'AH %' THEN ri.total_price ELSE 0 END) > 0
-        ORDER BY (SUM(CASE WHEN ri.raw_name LIKE 'AH %' THEN ri.total_price ELSE 0 END) + SUM(CASE WHEN ri.raw_name NOT LIKE 'AH %' THEN ri.total_price ELSE 0 END)) DESC
+        ORDER BY SUM(CASE WHEN ri.raw_name NOT LIKE 'AH %' THEN ri.total_price ELSE 0 END) DESC
         LIMIT 10
       `
       data.brandSwitch = plain(rows)
+
+      // Specific switch recommendations — A-brand items bought 3+ times
+      const switchRows = await sql`
+        SELECT
+          ri.raw_name,
+          COALESCE(ri.clean_name, ri.raw_name) AS clean_name,
+          ri.category,
+          COUNT(DISTINCT ri.receipt_id)             AS times,
+          ROUND(AVG(ri.unit_price)::numeric, 2)     AS avg_price
+        FROM receipt_items ri
+        JOIN receipts r ON ri.receipt_id = r.id
+        WHERE ri.raw_name NOT LIKE 'AH %'
+          AND ri.is_statiegeld = false AND ri.is_koopzegel = false
+          AND ri.raw_name NOT IN ('SUBTOTAAL','KOOPZEGELS')
+          AND ri.category IS NOT NULL
+          AND ri.unit_price > 1
+          AND r.parsed = true
+        GROUP BY ri.raw_name, COALESCE(ri.clean_name, ri.raw_name), ri.category
+        HAVING COUNT(DISTINCT ri.receipt_id) >= 3
+        ORDER BY (COUNT(DISTINCT ri.receipt_id) * AVG(ri.unit_price)) DESC
+        LIMIT 12
+      `
+      data.switchItems = plain(switchRows)
     }
 
     // ── C: Waste predictor ─────────────────────────────────────
