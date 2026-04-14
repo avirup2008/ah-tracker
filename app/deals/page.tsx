@@ -45,7 +45,7 @@ export default function DealsPage() {
     <div className="flex flex-col gap-5">
 
       {/* Header */}
-      <div className="card p-5 flex items-center justify-between">
+      <div className="card p-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.02em' }}>
             AH Bonus Deals
@@ -112,7 +112,7 @@ export default function DealsPage() {
           />
 
           {/* Deals grid */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filtered.map((deal, i) => (
               <div key={i} className="card p-4 flex flex-col gap-2">
                 <div className="flex items-start justify-between gap-2">

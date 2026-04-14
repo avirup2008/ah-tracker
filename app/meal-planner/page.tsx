@@ -123,7 +123,7 @@ export default function MealPlannerPage() {
 
       {/* ── PLAN VIEW ─────────────────────────────────────────── */}
       {mealPlan && view === 'plan' && meals && (
-        <div className="grid grid-cols-[1fr_380px] gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4">
 
           {/* Day-by-day grid */}
           <div className="flex flex-col gap-4">
@@ -170,7 +170,7 @@ export default function MealPlannerPage() {
                 {/* Expanded recipe */}
                 {selectedMeal?.day === meal.day && (
                   <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <p className="mono" style={{ fontSize: 10, color: 'var(--text-4)', marginBottom: 10, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Ingredients</p>
                         {meal.ingredients?.map((ing, i) => (
@@ -259,7 +259,7 @@ export default function MealPlannerPage() {
 
       {/* ── SHOPPING LIST VIEW ────────────────────────────────── */}
       {mealPlan && view === 'shopping' && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {(shoppingList ?? []).map((section) => (
             <div key={section.category} className="card p-5">
               <div className="card-label">{section.category}</div>
@@ -284,7 +284,7 @@ export default function MealPlannerPage() {
           ))}
 
           {/* Total */}
-          <div className="card p-5 col-span-2 flex items-center justify-between">
+          <div className="card p-4 flex flex-wrap items-center justify-between gap-3 lg:col-span-2">
             <div>
               <div className="card-label" style={{ marginBottom: 4 }}>Shopping List Total</div>
               <p style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--font-body)' }}>

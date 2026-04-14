@@ -138,7 +138,7 @@ export default async function DashboardPage() {
       />
 
       {/* ── Row 1 — Budget + Chart ─────────────────────────────── */}
-      <div className="grid grid-cols-[310px_1fr] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[310px_1fr] gap-4">
         <BudgetCard
           weekSpend={data.weekSpend}
           weekBudget={data.WEEKLY_BUDGET}
@@ -161,13 +161,13 @@ export default async function DashboardPage() {
       />
 
       {/* ── Row 3 — Categories + Recent Receipts ──────────────── */}
-      <div className="grid grid-cols-[1fr_340px] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4">
         <CategoryBreakdown categories={data.categories} />
         <RecentReceipts receipts={data.recentReceipts} />
       </div>
 
       {/* ── Row 4 — Inflation + Meal Plan ─────────────────────── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         <InflationTracker items={[] as any} />
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}

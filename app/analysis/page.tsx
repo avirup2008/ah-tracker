@@ -211,7 +211,7 @@ export default function AnalysisPage() {
           {inflat.length === 0 ? (
             <div style={{ padding:20 }}><EmptyState title="Price tracker" desc="Shows price changes for items you buy 3+ times, comparing your first purchase to the most recent price" /></div>
           ) : (
-            <table className="data-table">
+            <div className="overflow-x-auto -mx-1"><table className="data-table" style={{minWidth:520}}>
               <thead>
                 <tr>
                   {['Item', 'Category', 'First seen', 'Latest', 'Change', 'Times bought'].map(h=>(
@@ -238,7 +238,7 @@ export default function AnalysisPage() {
                   )
                 })}
               </tbody>
-            </table>
+            </table></div>
           )}
         </div>
       </div>
@@ -261,7 +261,7 @@ export default function AnalysisPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="card p-5">
             <div className="card-label" style={{ marginBottom:12 }}>Spend by category — AH vs A-brand</div>
             {brand.length === 0 ? (
@@ -343,7 +343,7 @@ export default function AnalysisPage() {
           {waste.length === 0 ? (
             <div style={{ padding:20 }}><EmptyState title="Waste predictor" desc="Perishable items (produce, dairy, meat, bakery) you buy 4+ times. Frequent purchases in tiny top-up shops may indicate over-buying that leads to waste." /></div>
           ) : (
-            <table className="data-table">
+            <div className="overflow-x-auto -mx-1"><table className="data-table" style={{minWidth:520}}>
               <thead>
                 <tr>
                   {['Item','Category','Times bought','Total spent','Avg qty','Small shop buys','Risk'].map(h=>(
@@ -368,7 +368,7 @@ export default function AnalysisPage() {
                   )
                 })}
               </tbody>
-            </table>
+            </table></div>
           )}
         </div>
       </div>
@@ -417,7 +417,7 @@ export default function AnalysisPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="card p-5">
             <div className="card-label" style={{ marginBottom:14 }}>Monthly budget forecast</div>
             {fc.spentSoFar === undefined ? (

@@ -102,7 +102,9 @@ export function AiInsightsDashboard({ weekSpend, monthSpend, projected, monthlyT
       {/* ── Header row ─────────────────────────────────────────── */}
       <div style={{
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
+        flexWrap: 'wrap',
+        gap: 10,
         justifyContent: 'space-between',
         padding: '14px 20px',
         borderBottom: open ? '1px solid var(--border)' : 'none',
@@ -150,7 +152,7 @@ export function AiInsightsDashboard({ weekSpend, monthSpend, projected, monthlyT
             </div>
           )}
           {text && !loading && (
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'24px 40px' }}>
+            <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap:'20px 40px' }}>
               {renderMarkdown(text)}
             </div>
           )}

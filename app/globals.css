@@ -416,3 +416,44 @@ body {
   animation: shimmer 1.4s infinite;
   border-radius: var(--radius-xs);
 }
+
+/* ── Mobile responsive overrides ────────────────────────────── */
+@media (max-width: 640px) {
+
+  /* Tighter card padding on mobile */
+  .card.p-5 { padding: 14px !important; }
+  .card.p-4 { padding: 12px !important; }
+
+  /* Stat bar: 2 columns on mobile instead of auto-fit */
+  .stat-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Health strip chips: smaller text, tighter */
+  .health-strip { padding: 10px 12px; gap: 6px; }
+  .verdict { font-size: 10px; padding: 3px 8px; }
+
+  /* Section nav: more compact on mobile */
+  .section-nav-item { padding: 9px 12px; font-size: 11px; }
+
+  /* Display numbers: smaller on mobile */
+  .display-num { font-size: 32px !important; }
+
+  /* So-what strip */
+  .so-what { font-size: 11px; }
+
+  /* Data table min-width forces horizontal scroll */
+  .overflow-x-auto { -webkit-overflow-scrolling: touch; }
+
+  /* Section header title */
+  .section-title { font-size: 15px; }
+
+  /* Deals header — stack on mobile */
+  .deals-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+}
+
+/* ── Touch target minimum ────────────────────────────────────── */
+@media (max-width: 768px) {
+  button, a { min-height: 36px; }
+  .btn-primary, .btn-ghost { padding: 9px 16px; }
+}

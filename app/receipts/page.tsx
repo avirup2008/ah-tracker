@@ -128,7 +128,7 @@ export default function ReceiptsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-[1fr_300px] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
 
         {/* ── Receipt table ──────────────────────────────────── */}
         <div className="card p-5">
@@ -152,7 +152,7 @@ export default function ReceiptsPage() {
               No receipts yet — upload your first PDF →
             </div>
           ) : (
-            <table className="data-table">
+            <div className="overflow-x-auto"><table className="data-table" style={{minWidth:480}}>
               <thead>
                 <tr>
                   {['Date','Store','Items','Spend','Bonus saved','Status'].map(h=>(
@@ -182,7 +182,7 @@ export default function ReceiptsPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )}
         </div>
 
