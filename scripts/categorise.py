@@ -16,7 +16,7 @@ for line in open('/Users/avi/Downloads/Claude/Projects/Projects/ah-tracker/.env.
         env[k.strip()] = v.strip().strip('"')
 
 genai.configure(api_key=env['GOOGLE_API_KEY'])
-model = genai.GenerativeModel('gemini-2.0-flash')
+model = genai.GenerativeModel('gemini-2.5-flash')
 
 conn = psycopg2.connect(env.get('POSTGRES_URL_NON_POOLING') or env.get('DATABASE_URL_UNPOOLED'))
 cur = conn.cursor()
