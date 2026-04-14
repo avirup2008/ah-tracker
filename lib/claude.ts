@@ -204,15 +204,28 @@ Respond with ONLY valid JSON array, no markdown:
 
 // ─── AH Deals — uses Gemini Google Search grounding ─────────────
 export async function fetchAhDeals(): Promise<AhDeal[]> {
-  const prompt = `Search for the current Albert Heijn bonus deals and Bonuskaart promotions 
-this week in the Netherlands at ah.nl/bonus.
+  const today = new Date()
+  const todayStr = today.toISOString().slice(0, 10)
+  // AH bonus week runs Wednesday–Tuesday
+  const dow = today.getDay() // 0=Sun
+  const daysToNextTue = (2 - dow + 7) % 7 || 7
+  const nextTue = new Date(today)
+  nextTue.setDate(today.getDate() + daysToNextTue)
+  const validUntil = nextTue.toISOString().slice(0, 10)
 
-Return a JSON array of at least 15 current food deals. Each deal:
-{"name":"product name in Dutch","discount":"e.g. 2e halve prijs or 50% korting","category":"food category","deal_price":null,"valid_until":null}
+  const prompt = `Today is ${todayStr}. Search ah.nl/bonus for the current Albert Heijn Bonuskaart deals valid this week in the Netherlands.
 
+The current bonus week runs until ${validUntil}. All deals must have valid_until set to "${validUntil}".
+
+Return a JSON array of 20 real current deals. Each item:
+{"name":"exact Dutch product name from AH","discount":"e.g. 2e halve prijs or 50% korting or 3 voor €5","category":"food category in Dutch","deal_price":null,"valid_until":"${validUntil}"}
+
+IMPORTANT: Use "${validUntil}" as valid_until for ALL deals. Do NOT invent past dates.
 Respond with ONLY a valid JSON array, no markdown.`
 
-  // useSearch=true enables Gemini's built-in Google Search grounding
   const text = await ask(prompt, true)
-  return parseJSON<AhDeal[]>(text, [])
+  const deals = parseJSON<AhDeal[]>(text, [])
+
+  // Force correct valid_until on every deal regardless of what Gemini returned
+  return deals.map(d => ({ ...d, valid_until: validUntil }))
 }
