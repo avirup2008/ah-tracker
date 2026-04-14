@@ -68,6 +68,7 @@ export const CATEGORY_ICONS: Record<string, string> = {
   'Groente & Fruit': '🥦',
   'Brood & Bakkerij': '🍞',
   'Pasta, Rijst & Granen': '🍚',
+  'Pasta Rijst & Granen': '🍚',
   'Sauzen & Kruiden': '🫙',
   'Maaltijden kant-en-klaar': '🍱',
   'Snacks & Zoetwaren': '🍿',
@@ -76,4 +77,28 @@ export const CATEGORY_ICONS: Record<string, string> = {
   'Huishoud': '🧹',
   'Persoonlijke verzorging': '🪥',
   'Overig non-food': '📦',
+}
+
+// Dutch → "Dutch (English)" display label
+export const CATEGORY_LABEL: Record<string, string> = {
+  'Vlees & Vis':             'Vlees & Vis (Meat & Fish)',
+  'Zuivel & Eieren':         'Zuivel & Eieren (Dairy & Eggs)',
+  'Groente & Fruit':         'Groente & Fruit (Produce)',
+  'Brood & Bakkerij':        'Brood & Bakkerij (Bread & Bakery)',
+  'Pasta, Rijst & Granen':   'Pasta, Rijst & Granen (Pasta, Rice & Grains)',
+  'Pasta Rijst & Granen':    'Pasta Rijst & Granen (Pasta, Rice & Grains)',
+  'Sauzen & Kruiden':        'Sauzen & Kruiden (Sauces & Spices)',
+  'Maaltijden kant-en-klaar':'Maaltijden kant-en-klaar (Ready Meals)',
+  'Snacks & Zoetwaren':      'Snacks & Zoetwaren (Snacks & Sweets)',
+  'Dranken':                 'Dranken (Drinks)',
+  'Bier & Wijn':             'Bier & Wijn (Beer & Wine)',
+  'Huishoud':                'Huishoud (Household)',
+  'Persoonlijke verzorging': 'Persoonlijke verzorging (Personal Care)',
+  'Overig non-food':         'Overig non-food (Other Non-Food)',
+}
+
+/** Returns "Dutch (English)" or falls back to the raw category string */
+export function catLabel(cat: string | null | undefined): string {
+  if (!cat) return 'Unknown'
+  return CATEGORY_LABEL[cat] ?? cat
 }

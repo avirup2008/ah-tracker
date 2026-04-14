@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { formatEuro, formatDate, CATEGORY_ICONS } from '@/lib/utils'
+import { formatEuro, formatDate, CATEGORY_ICONS, catLabel } from '@/lib/utils'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, LineChart, Line, Legend
@@ -101,7 +101,7 @@ export default function AnalysisPage() {
                       return (
                         <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td style={{ padding: '10px', color: 'var(--text)', fontFamily: 'var(--font-body)', maxWidth: 240 }}>{item.clean_name}</td>
-                          <td style={{ padding: '10px', color: 'var(--text-3)', fontSize: 11 }}>{item.category}</td>
+                          <td style={{ padding: '10px', color: 'var(--text-3)', fontSize: 11 }}>{catLabel(item.category)}</td>
                           <td style={{ padding: '10px', fontFamily: 'var(--font-mono)', color: 'var(--text-2)' }}>{formatEuro(Number(item.first_price))}</td>
                           <td style={{ padding: '10px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text)' }}>{formatEuro(Number(item.latest_price))}</td>
                           <td style={{ padding: '10px' }}>
@@ -137,7 +137,7 @@ export default function AnalysisPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={(data.brandSwitch as BrandRow[]).map(r => ({
-                        category: (r.category ?? '').split(' (')[0].replace('&', '&'),
+                        category: catLabel(r.category).replace(' (', '\n('),
                         'AH Own Brand': Math.round(Number(r.own_brand_spend) * 100) / 100,
                         'A-Brand':      Math.round(Number(r.abrand_spend) * 100) / 100,
                       }))}
@@ -183,7 +183,7 @@ export default function AnalysisPage() {
                       return (
                         <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td style={{ padding: '10px', color: 'var(--text)', fontFamily: 'var(--font-body)' }}>{item.clean_name}</td>
-                          <td style={{ padding: '10px', color: 'var(--text-3)', fontSize: 11 }}>{CATEGORY_ICONS[item.category ?? ''] ?? ''} {item.category}</td>
+                          <td style={{ padding: '10px', color: 'var(--text-3)', fontSize: 11 }}>{CATEGORY_ICONS[item.category ?? ''] ?? ''} {catLabel(item.category)}</td>
                           <td style={{ padding: '10px', fontFamily: 'var(--font-mono)', color: 'var(--text-2)' }}>{item.purchase_count}×</td>
                           <td style={{ padding: '10px', fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{formatEuro(Number(item.total_spent))}</td>
                           <td style={{ padding: '10px', fontFamily: 'var(--font-mono)', color: 'var(--text-3)' }}>{Number(item.avg_qty).toFixed(1)}</td>
@@ -237,7 +237,7 @@ export default function AnalysisPage() {
                       <div key={i} className="flex items-center justify-between py-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
                         <div>
                           <div style={{ fontSize: 12.5, color: 'var(--text)', fontFamily: 'var(--font-body)' }}>{item.clean_name}</div>
-                          <div style={{ fontSize: 10, color: 'var(--text-4)', marginTop: 1 }}>{item.category} · Last: {formatDate(item.last_bought, 'd MMM yyyy')}</div>
+                          <div style={{ fontSize: 10, color: 'var(--text-4)', marginTop: 1 }}>{catLabel(item.category)} · Last: {formatDate(item.last_bought, 'd MMM yyyy')}</div>
                         </div>
                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
                           <div className="mono" style={{ fontSize: 12, fontWeight: 600, color: goodColor }}>{item.bonus_purchases}× on deal</div>

@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-Categorise all receipt items using Gemini directly.
-Reads raw_text from DB, calls Gemini, writes categories back.
-Rate limit: 15 RPM free tier → 4s delay between calls.
+Categorise receipt items using Gemini — batched to stay within 20 RPD free tier.
+Sends up to 10 receipts worth of items per API call = ~11 calls for 109 receipts.
 """
 import os, time, json, re, psycopg2
-import google.generativeai as genai
+from google import genai
 
 # ── Load env ──────────────────────────────────────────────────
 env = {}
@@ -15,100 +14,103 @@ for line in open('/Users/avi/Downloads/Claude/Projects/Projects/ah-tracker/.env.
         k, v = line.split('=', 1)
         env[k.strip()] = v.strip().strip('"')
 
-genai.configure(api_key=env['GOOGLE_API_KEY'])
-model = genai.GenerativeModel('gemini-2.5-flash-lite')
+client = genai.Client(api_key=env['GOOGLE_API_KEY'])
 
 conn = psycopg2.connect(env.get('POSTGRES_URL_NON_POOLING') or env.get('DATABASE_URL_UNPOOLED'))
 cur = conn.cursor()
 
 CATEGORIES = """
-FOOD (count toward budget):
-- Vlees & Vis (Meat & Fish)
-- Zuivel & Eieren (Dairy & Eggs)
-- Groente & Fruit (Produce)
-- Brood & Bakkerij (Bakery)
-- Pasta, Rijst & Granen (Pasta, Rice & Grains)
-- Sauzen & Kruiden (Sauces, Spices & Condiments)
-- Maaltijden kant-en-klaar (Ready meals)
-- Snacks & Zoetwaren (Snacks & Sweets)
-- Dranken (Non-alcoholic drinks)
-- Bier & Wijn (Alcohol)
-NON-FOOD (excluded from budget):
-- Huishoud (Household: cleaning, kitchen paper)
-- Persoonlijke verzorging (Personal care & pharmacy)
-- Overig non-food (Other non-food)
-""".strip()
+FOOD: Vlees & Vis | Zuivel & Eieren | Groente & Fruit | Brood & Bakkerij |
+Pasta Rijst & Granen | Sauzen & Kruiden | Maaltijden kant-en-klaar |
+Snacks & Zoetwaren | Dranken | Bier & Wijn
+NON-FOOD (isNonFood=true, btwRate=21): Huishoud | Persoonlijke verzorging | Overig non-food
+FOOD btwRate=9, except Bier & Wijn btwRate=21
+"""
 
-def categorise_items(items):
-    """Send list of raw item names to Gemini, return categorised results."""
-    item_list = '\n'.join(f'{i}: {name}' for i, name in enumerate(items))
-    prompt = f"""You are an Albert Heijn product expert. Categorise each abbreviated Dutch grocery item.
+def categorise_batch(items_by_receipt):
+    """
+    items_by_receipt: list of (receipt_id, [(item_id, raw_name), ...])
+    Returns: {item_id: {cleanName, category, isNonFood, btwRate}}
+    """
+    # Build flat list with global index
+    flat = []
+    for rid, items in items_by_receipt:
+        for iid, name in items:
+            flat.append((iid, name))
 
-{CATEGORIES}
+    item_list = '\n'.join(f'{i}: {name}' for i, (iid, name) in enumerate(flat))
 
-Rules:
-- cleanName: "Dutch name (English translation)" e.g. "Halfvolle melk (semi-skimmed milk)"
-- Non-food: isNonFood=true, btwRate=21
-- Food: btwRate=9. Alcohol: btwRate=21 but category=Bier & Wijn
-- AH = Albert Heijn own brand. HV = halfvolle. SCHARREL = free-range
-- HIPRO = high protein drink. STARB = Starbucks
+    prompt = f"""Categorise these Albert Heijn receipt items. AH = own brand. HV = halfvolle. SCHARREL = free-range.
 
-Items (index: raw_name):
+Categories: {CATEGORIES}
+
+Items:
 {item_list}
 
-Respond ONLY with a valid JSON array, no markdown:
-[{{"index":0,"cleanName":"...","category":"...","isNonFood":false,"btwRate":9}}]"""
+Respond ONLY with a JSON array, no markdown:
+[{{"index":0,"cleanName":"Dutch name (English)","category":"...","isNonFood":false,"btwRate":9}}]"""
 
-    resp = model.generate_content(prompt)
+    resp = client.models.generate_content(
+        model='gemini-2.5-flash-lite',
+        contents=prompt
+    )
     text = resp.text.strip()
-    # Strip markdown code fences if present
     text = re.sub(r'^```json?\s*', '', text)
     text = re.sub(r'\s*```$', '', text)
-    return json.loads(text)
+    results = json.loads(text)
 
+    out = {}
+    for r in results:
+        i = r.get('index', -1)
+        if 0 <= i < len(flat):
+            iid = flat[i][0]
+            out[iid] = r
+    return out
 
-# ── Get all receipts with uncategorised items ─────────────────
+# ── Get all uncategorised items grouped by receipt ────────────
 cur.execute("""
-    SELECT DISTINCT r.id, r.filename
+    SELECT r.id, r.filename, ri.id, ri.raw_name
     FROM receipts r
     JOIN receipt_items ri ON ri.receipt_id = r.id
     WHERE ri.category IS NULL
       AND ri.is_statiegeld = false
       AND ri.is_koopzegel  = false
-    ORDER BY r.id
+      AND ri.raw_name NOT IN ('SUBTOTAAL', 'KOOPZEGELS')
+    ORDER BY r.id, ri.id
 """)
-receipts = cur.fetchall()
-print(f'Receipts needing categorisation: {len(receipts)}')
-print()
+rows = cur.fetchall()
 
-ok = failed = skipped = 0
+# Group by receipt
+from collections import defaultdict
+receipts_map = defaultdict(list)
+filenames = {}
+for rid, fname, iid, rname in rows:
+    receipts_map[rid].append((iid, rname))
+    filenames[rid] = fname
 
-for idx, (receipt_id, filename) in enumerate(receipts, 1):
-    # Get items for this receipt
-    cur.execute("""
-        SELECT id, raw_name FROM receipt_items
-        WHERE receipt_id = %s
-          AND category IS NULL
-          AND is_statiegeld = false
-          AND is_koopzegel  = false
-    """, (receipt_id,))
-    items = cur.fetchall()
+receipt_ids = list(receipts_map.keys())
+total_items = sum(len(v) for v in receipts_map.values())
+print(f'Receipts needing categories: {len(receipt_ids)}')
+print(f'Total items: {total_items}')
 
-    if not items:
-        skipped += 1
-        continue
+# ── Batch: 10 receipts per API call ───────────────────────────
+BATCH_SIZE = 10
+batches = [receipt_ids[i:i+BATCH_SIZE] for i in range(0, len(receipt_ids), BATCH_SIZE)]
+print(f'Batches: {len(batches)} (≤{BATCH_SIZE} receipts each) — well within 20 RPD\n')
 
-    raw_names = [row[1] for row in items]
-    item_ids  = [row[0] for row in items]
+ok_items = 0
+failed_batches = 0
+
+for b_idx, batch_rids in enumerate(batches, 1):
+    items_by_receipt = [(rid, receipts_map[rid]) for rid in batch_rids]
+    total_in_batch = sum(len(items) for _, items in items_by_receipt)
+    fnames = ', '.join(filenames[rid][:25] for rid in batch_rids[:3])
+    print(f'Batch {b_idx}/{len(batches)}: {len(batch_rids)} receipts, {total_in_batch} items ({fnames}...)')
 
     try:
-        results = categorise_items(raw_names)
+        results = categorise_batch(items_by_receipt)
 
-        updated = 0
-        for r in results:
-            i = r.get('index', -1)
-            if i < 0 or i >= len(item_ids):
-                continue
+        for iid, r in results.items():
             cur.execute("""
                 UPDATE receipt_items SET
                     clean_name  = %s,
@@ -121,22 +123,22 @@ for idx, (receipt_id, filename) in enumerate(receipts, 1):
                 r.get('category'),
                 r.get('isNonFood', False),
                 r.get('btwRate', 9),
-                item_ids[i]
+                iid
             ))
-            updated += 1
-
         conn.commit()
-        ok += 1
-        print(f'{idx}/{len(receipts)} ✅ {filename[:45]} — {updated}/{len(items)} items categorised')
+        ok_items += len(results)
+        print(f'  ✅ {len(results)}/{total_in_batch} items categorised')
 
     except Exception as e:
         conn.rollback()
-        failed += 1
-        print(f'{idx}/{len(receipts)} ❌ {filename[:45]} — {e}')
+        failed_batches += 1
+        print(f'  ❌ {e}')
 
-    # 4 second delay → stays under 15 RPM free tier limit
-    if idx < len(receipts):
-        time.sleep(4)
+    # 5s delay between batches (well under 5 RPM limit)
+    if b_idx < len(batches):
+        time.sleep(5)
 
-print(f'\n✅ {ok} receipts done  ⚠️  {skipped} skipped  ❌ {failed} failed')
+print(f'\n✅ Done — {ok_items} items categorised across {len(batches)-failed_batches} batches')
+if failed_batches:
+    print(f'⚠️  {failed_batches} batches failed — re-run to retry')
 conn.close()

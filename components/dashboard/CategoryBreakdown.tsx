@@ -1,6 +1,6 @@
 'use client'
 
-import { CATEGORY_ICONS, formatEuro } from '@/lib/utils'
+import { CATEGORY_ICONS, formatEuro, catLabel } from '@/lib/utils'
 
 interface CategoryRow {
   category: string
@@ -33,7 +33,7 @@ export function CategoryBreakdown({ categories }: { categories: CategoryRow[] })
               <div key={cat.category}>
                 <div className="flex justify-between items-baseline mb-1">
                   <span style={{ fontSize: 11.5, color: 'var(--text-2)', fontFamily: 'var(--font-body)' }}>
-                    {icon} {cat.category}
+                    {icon} {catLabel(cat.category)}
                   </span>
                   <span className="mono" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
                     {formatEuro(Number(cat.total))}
