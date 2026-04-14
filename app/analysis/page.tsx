@@ -478,35 +478,139 @@ function SeasonalityChart({ data, isDark, accent, grid, muted }: {
   data: SeasonRow[]; isDark: boolean; accent: string; grid: string; muted: string
 }) {
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-  const byItem: Record<string, SeasonRow[]> = {}
-  data.forEach(r => { if (!byItem[r.clean_name]) byItem[r.clean_name] = []; byItem[r.clean_name].push(r) })
-  const items = Object.entries(byItem).sort((a,b) => b[1].length - a[1].length).map(([k]) => k)
+  const good = isDark ? '#4ADE80' : '#1A6B3A'
+  const warn = isDark ? '#FF5F7E' : '#B83820'
 
-  const [selected, setSelected] = useState(items[0] ?? '')
-  const chartData = MONTHS.map((m,i) => {
-    const row = byItem[selected]?.find(r => r.month === i+1)
-    return { month:m, price: row ? Math.round(Number(row.avg_price)*100)/100 : null }
-  }).filter(d => d.price !== null)
+  // Group by item, take top 8 by data coverage
+  const byItem: Record<string, SeasonRow[]> = {}
+  data.forEach(r => {
+    if (!byItem[r.clean_name]) byItem[r.clean_name] = []
+    byItem[r.clean_name].push(r)
+  })
+  const topItems = Object.entries(byItem)
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, 8)
+
+  const [expanded, setExpanded] = useState<string | null>(null)
+
+  if (topItems.length === 0) return null
 
   return (
     <div>
-      <select
-        value={selected}
-        onChange={e => setSelected(e.target.value)}
-        style={{ width:'100%', padding:'8px 12px', marginBottom:16, borderRadius:'var(--radius-sm)', border:'1px solid var(--border)', background:'var(--surface2)', color:'var(--text)', fontFamily:'var(--font-body)', fontSize:13 }}
-      >
-        {items.map(item => <option key={item} value={item}>{item}</option>)}
-      </select>
-      <div style={{ height:220 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ left:-10, right:10 }}>
-            <CartesianGrid vertical={false} stroke={grid} />
-            <XAxis dataKey="month" tick={{ fontSize:10, fill:muted, fontFamily:'IBM Plex Mono' }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize:9, fill:muted, fontFamily:'IBM Plex Mono' }} tickFormatter={v=>`€${v}`} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={{ background:isDark?'#131620':'#fff', border:`1px solid ${grid}`, borderRadius:8, fontSize:12, fontFamily:'IBM Plex Mono' }} formatter={(v:number)=>[`€${v.toFixed(2)}`,'Avg price']} />
-            <Line type="monotone" dataKey="price" stroke={accent} strokeWidth={2.5} dot={{ r:4, fill:accent }} connectNulls />
-          </LineChart>
-        </ResponsiveContainer>
+      <p style={{ fontSize:12, color:'var(--text-3)', marginBottom:16, fontFamily:'var(--font-body)', lineHeight:1.5 }}>
+        Your top {topItems.length} most purchased items. Green dot = cheapest month to buy, red = most expensive.
+        Tap any card to expand.
+      </p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {topItems.map(([name, rows]) => {
+          const chartData = MONTHS.map((m, i) => {
+            const row = rows.find(r => r.month === i + 1)
+            return { month: m, price: row ? Math.round(Number(row.avg_price) * 100) / 100 : null }
+          })
+          const prices = chartData.map(d => d.price).filter((p): p is number => p !== null)
+          const minPrice = Math.min(...prices)
+          const maxPrice = Math.max(...prices)
+          const minMonth = MONTHS[chartData.findIndex(d => d.price === minPrice)]
+          const maxMonth = MONTHS[chartData.findIndex(d => d.price === maxPrice)]
+          const isExpanded = expanded === name
+          const shortName = name.split('(')[0].trim()
+          const range = maxPrice - minPrice
+          const savingPct = minPrice > 0 ? Math.round((range / maxPrice) * 100) : 0
+
+          return (
+            <div
+              key={name}
+              onClick={() => setExpanded(isExpanded ? null : name)}
+              className={isExpanded ? 'card p-4 col-span-2 md:col-span-4' : 'card p-3'}
+              style={{ cursor:'pointer', transition:'all 0.2s', borderColor: isExpanded ? 'var(--accent)' : undefined }}
+            >
+              {/* Card header */}
+              <div style={{ marginBottom:8 }}>
+                <div style={{ fontSize:12, fontWeight:600, color:'var(--text)', fontFamily:'var(--font-body)', lineHeight:1.3, marginBottom:2 }}>
+                  {shortName}
+                </div>
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                  <span style={{ fontSize:10, color:good, fontFamily:'var(--font-mono)', fontWeight:600 }}>
+                    ↓ {minMonth} €{minPrice.toFixed(2)}
+                  </span>
+                  {savingPct > 5 && (
+                    <span className="badge badge-good" style={{ fontSize:9 }}>
+                      save {savingPct}%
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Mini sparkline (collapsed) or full chart (expanded) */}
+              {!isExpanded ? (
+                <div style={{ height:52 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData} margin={{ top:4, right:2, bottom:0, left:2 }}>
+                      <Line
+                        type="monotone"
+                        dataKey="price"
+                        stroke={accent}
+                        strokeWidth={1.5}
+                        dot={(props) => {
+                          const { cx, cy, payload } = props
+                          if (payload.price === null) return <g key={cx} />
+                          const isMin = payload.price === minPrice
+                          const isMax = payload.price === maxPrice
+                          if (!isMin && !isMax) return <g key={cx} />
+                          return (
+                            <circle key={cx} cx={cx} cy={cy} r={3}
+                              fill={isMin ? good : warn}
+                              stroke="none"
+                            />
+                          )
+                        }}
+                        connectNulls
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div style={{ height:200, marginTop:8 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData} margin={{ left:-10, right:10, top:4 }}>
+                      <CartesianGrid vertical={false} stroke={grid} strokeDasharray="3 3" />
+                      <XAxis dataKey="month" tick={{ fontSize:9, fill:muted, fontFamily:'IBM Plex Mono' }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize:9, fill:muted, fontFamily:'IBM Plex Mono' }} tickFormatter={v=>`€${v}`} axisLine={false} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ background:isDark?'#131620':'#fff', border:`1px solid ${grid}`, borderRadius:8, fontSize:11, fontFamily:'IBM Plex Mono' }}
+                        formatter={(v:number)=>[`€${v.toFixed(2)}`,'Avg price']}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="price"
+                        stroke={accent}
+                        strokeWidth={2}
+                        connectNulls
+                        dot={(props) => {
+                          const { cx, cy, payload } = props
+                          if (payload.price === null) return <g key={cx} />
+                          const isMin = payload.price === minPrice
+                          const isMax = payload.price === maxPrice
+                          return (
+                            <circle key={cx} cx={cx} cy={cy} r={isMin || isMax ? 5 : 3}
+                              fill={isMin ? good : isMax ? warn : accent}
+                              stroke="none"
+                            />
+                          )
+                        }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                  <div style={{ display:'flex', gap:16, marginTop:8, fontSize:11, fontFamily:'var(--font-body)' }}>
+                    <span style={{ color:good }}>📉 Buy in <strong>{minMonth}</strong> — €{minPrice.toFixed(2)}</span>
+                    <span style={{ color:warn }}>📈 Most expensive in <strong>{maxMonth}</strong> — €{maxPrice.toFixed(2)}</span>
+                    {savingPct > 0 && <span style={{ color:'var(--text-3)' }}>Timing saves up to {savingPct}%</span>}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
