@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { formatDate, formatEuro } from '@/lib/utils'
 
 interface Receipt {
@@ -34,7 +34,7 @@ export default function ReceiptsPage() {
   }, [])
 
   // Fetch on mount
-  useState(() => { fetchReceipts() })
+  useEffect(() => { fetchReceipts() }, [fetchReceipts])
 
   const handleUpload = async (files: FileList | File[]) => {
     if (!files.length) return
