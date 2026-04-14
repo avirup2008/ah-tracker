@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     if (feature === 'all' || feature === 'inflation') {
       const rows = await sql`
         SELECT
-          COALESCE(ri.clean_name, ri.raw_name) AS display_name,
+          COALESCE(ri.clean_name, ri.raw_name) AS clean_name,
           ri.category,
           COUNT(DISTINCT ri.receipt_id)         AS purchase_count,
           (SELECT ri2.unit_price
@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
         WHERE ri.unit_price IS NOT NULL
           AND ri.is_statiegeld = false
           AND ri.is_koopzegel  = false
+          AND ri.raw_name NOT IN ('SUBTOTAAL', 'KOOPZEGELS')
           AND r.parsed = true
         GROUP BY COALESCE(ri.clean_name, ri.raw_name), ri.category
         HAVING COUNT(DISTINCT ri.receipt_id) >= 3
@@ -81,6 +82,7 @@ export async function GET(req: NextRequest) {
         WHERE r.parsed = true
           AND ri.is_statiegeld = false
           AND ri.is_koopzegel  = false
+          AND ri.raw_name NOT IN ('SUBTOTAAL', 'KOOPZEGELS')
         GROUP BY COALESCE(ri.category, split_part(ri.raw_name, ' ', 1))
         HAVING COUNT(CASE WHEN ri.raw_name LIKE 'AH %' THEN 1 END) > 0
            AND COUNT(CASE WHEN ri.raw_name NOT LIKE 'AH %' THEN 1 END) > 0
@@ -104,6 +106,7 @@ export async function GET(req: NextRequest) {
         JOIN receipts r ON ri.receipt_id = r.id
         WHERE ri.is_statiegeld = false
           AND ri.is_koopzegel  = false
+          AND ri.raw_name NOT IN ('SUBTOTAAL', 'KOOPZEGELS')
           AND r.parsed = true
           AND ri.unit_price IS NOT NULL
         GROUP BY COALESCE(ri.clean_name, ri.raw_name), ri.category
