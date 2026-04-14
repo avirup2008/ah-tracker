@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { formatDate, formatEuro } from '@/lib/utils'
 
 interface Receipt {
@@ -10,106 +10,172 @@ interface Receipt {
   parsed: boolean; parse_error: string | null
 }
 
+interface Summary {
+  total: number; parsed: number; pending: number; errors: number
+  totalSpend: number; totalSavings: number; dateMin: string; dateMax: string
+  avgPerWeek: number
+}
+
 export default function ReceiptsPage() {
-  const [receipts, setReceipts] = useState<Receipt[]>([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [uploadResult, setUploadResult] = useState<string | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [fetched, setFetched] = useState(false)
+  const [receipts,    setReceipts]    = useState<Receipt[]>([])
+  const [summary,     setSummary]     = useState<Summary | null>(null)
+  const [total,       setTotal]       = useState(0)
+  const [loading,     setLoading]     = useState(true)
+  const [uploading,   setUploading]   = useState(false)
+  const [uploadMsg,   setUploadMsg]   = useState<string | null>(null)
+  const [isDragging,  setIsDragging]  = useState(false)
+  const [parseMsg,    setParseMsg]    = useState<string | null>(null)
 
   const fetchReceipts = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/receipts?limit=50')
+      const res  = await fetch('/api/receipts?limit=200')
       const data = await res.json()
-      setReceipts(data.receipts ?? [])
+      const all: Receipt[] = data.receipts ?? []
+      setReceipts(all)
       setTotal(data.total ?? 0)
-      setFetched(true)
+
+      // Compute summary from data
+      const parsed   = all.filter(r => r.parsed)
+      const pending  = all.filter(r => !r.parsed && !r.parse_error)
+      const errors   = all.filter(r => !!r.parse_error)
+      const totalSpend   = parsed.reduce((s,r) => s + Number(r.net_grocery_spend ?? 0), 0)
+      const totalSavings = parsed.reduce((s,r) => s + Number(r.bonus_savings ?? 0), 0)
+      const dates    = parsed.map(r => r.receipt_date).filter(Boolean).sort()
+      const dateMin  = dates[0] ?? ''
+      const dateMax  = dates[dates.length-1] ?? ''
+
+      // Weeks spanned
+      let weeksSpanned = 1
+      if (dateMin && dateMax) {
+        const ms = new Date(dateMax).getTime() - new Date(dateMin).getTime()
+        weeksSpanned = Math.max(1, Math.round(ms / (7*24*60*60*1000)))
+      }
+      const avgPerWeek = weeksSpanned > 0 ? totalSpend / weeksSpanned : 0
+
+      setSummary({ total: all.length, parsed: parsed.length, pending: pending.length, errors: errors.length, totalSpend, totalSavings, dateMin, dateMax, avgPerWeek })
     } finally {
       setLoading(false)
     }
   }, [])
 
-  // Fetch on mount
   useEffect(() => { fetchReceipts() }, [fetchReceipts])
 
-  const handleUpload = async (files: FileList | File[]) => {
+  const handleFiles = async (files: FileList | File[]) => {
     if (!files.length) return
     setUploading(true)
-    setUploadResult(null)
-    const formData = new FormData()
-    Array.from(files).forEach(f => formData.append('files', f))
+    setUploadMsg(null)
+    const fd = new FormData()
+    Array.from(files).forEach(f => fd.append('files', f))
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const res  = await fetch('/api/upload', { method:'POST', body:fd })
       const data = await res.json()
-      setUploadResult(`✅ ${data.uploaded} uploaded · ${data.duplicates} duplicates · ${data.errors} errors. Parsing in background...`)
+      setUploadMsg(`✅ ${data.uploaded} uploaded · ${data.duplicates} duplicates`)
       fetchReceipts()
     } catch {
-      setUploadResult('❌ Upload failed')
+      setUploadMsg('❌ Upload failed')
     } finally {
       setUploading(false)
     }
   }
 
+  const parsePending = async () => {
+    setParseMsg('Triggering parse…')
+    const res  = await fetch('/api/parse')
+    const data = await res.json()
+    setParseMsg(`Parsed ${data.parsed ?? 0} receipts`)
+    fetchReceipts()
+  }
+
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-[1fr_320px] gap-4">
 
-        {/* Receipt list */}
+      {/* ── Stat bar ──────────────────────────────────────────── */}
+      {summary && (
+        <div className="stat-bar animate-in">
+          <div className="stat-bar-item">
+            <div className="mono" style={{ fontSize:22, fontWeight:700, color:'var(--text)' }}>{summary.total}</div>
+            <div style={{ fontSize:10.5, color:'var(--text-4)', marginTop:2, fontFamily:'var(--font-body)' }}>Total receipts</div>
+          </div>
+          <div className="stat-bar-item">
+            <div className="mono" style={{ fontSize:22, fontWeight:700, color:'var(--text)' }}>{formatEuro(summary.totalSpend)}</div>
+            <div style={{ fontSize:10.5, color:'var(--text-4)', marginTop:2, fontFamily:'var(--font-body)' }}>All-time spend</div>
+          </div>
+          <div className="stat-bar-item">
+            <div className="mono" style={{ fontSize:22, fontWeight:700, color:'var(--good)' }}>{formatEuro(summary.totalSavings)}</div>
+            <div style={{ fontSize:10.5, color:'var(--text-4)', marginTop:2, fontFamily:'var(--font-body)' }}>Bonus saved</div>
+          </div>
+          <div className="stat-bar-item">
+            <div className="mono" style={{ fontSize:22, fontWeight:700, color:'var(--text)' }}>{formatEuro(Math.round(summary.avgPerWeek*100)/100)}</div>
+            <div style={{ fontSize:10.5, color:'var(--text-4)', marginTop:2, fontFamily:'var(--font-body)' }}>Avg per week</div>
+          </div>
+          <div className="stat-bar-item">
+            <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', fontFamily:'var(--font-body)' }}>
+              {summary.dateMin ? formatDate(summary.dateMin, 'MMM yyyy') : '—'}
+              {' '}→{' '}
+              {summary.dateMax ? formatDate(summary.dateMax, 'MMM yyyy') : '—'}
+            </div>
+            <div style={{ fontSize:10.5, color:'var(--text-4)', marginTop:2, fontFamily:'var(--font-body)' }}>Date range</div>
+          </div>
+          <div className="stat-bar-item">
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              <span className="badge badge-good">{summary.parsed} parsed</span>
+              {summary.pending > 0 && <span className="badge badge-neutral">{summary.pending} pending</span>}
+              {summary.errors > 0  && <span className="badge badge-warn">{summary.errors} errors</span>}
+            </div>
+            <div style={{ fontSize:10.5, color:'var(--text-4)', marginTop:4, fontFamily:'var(--font-body)' }}>Parse status</div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-[1fr_300px] gap-4">
+
+        {/* ── Receipt table ──────────────────────────────────── */}
         <div className="card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <span className="card-label" style={{ marginBottom: 0 }}>All Receipts ({total})</span>
-            <button
-              onClick={fetchReceipts}
-              className="mono"
-              style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              Refresh
-            </button>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+            <span className="card-label" style={{ marginBottom:0 }}>All Receipts ({total})</span>
+            <button className="btn-ghost" onClick={fetchReceipts} style={{ fontSize:11 }}>↻ Refresh</button>
           </div>
 
           {loading ? (
-            <p style={{ color: 'var(--text-4)', fontSize: 13 }}>Loading...</p>
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {[1,2,3,4,5].map(i=>(
+                <div key={i} style={{ display:'flex', gap:12, alignItems:'center' }}>
+                  <div className="skeleton" style={{ height:12, flex:1 }} />
+                  <div className="skeleton" style={{ height:12, width:60 }} />
+                  <div className="skeleton" style={{ height:12, width:50 }} />
+                </div>
+              ))}
+            </div>
           ) : receipts.length === 0 ? (
-            <p style={{ color: 'var(--text-4)', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>
-              No receipts yet — upload your first PDF above
-            </p>
+            <div style={{ textAlign:'center', padding:'40px 0', color:'var(--text-4)', fontSize:13 }}>
+              No receipts yet — upload your first PDF →
+            </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <table className="data-table">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Date','Store','Items','Spend','Savings','Status'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-4)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{h}</th>
+                <tr>
+                  {['Date','Store','Items','Spend','Bonus saved','Status'].map(h=>(
+                    <th key={h}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {receipts.map(r => (
-                  <tr key={r.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '9px 8px', color: 'var(--text)', fontFamily: 'var(--font-body)' }}>
-                      {formatDate(r.receipt_date, 'EEE d MMM yyyy')}
+                  <tr key={r.id}>
+                    <td style={{ fontFamily:'var(--font-body)', color:'var(--text)' }}>
+                      {formatDate(r.receipt_date,'EEE d MMM yyyy')}
                     </td>
-                    <td style={{ padding: '9px 8px', color: 'var(--text-2)', fontFamily: 'var(--font-body)' }}>
+                    <td style={{ color:'var(--text-2)', fontFamily:'var(--font-body)' }}>
                       {r.store_name ?? 'Unknown'}
                     </td>
-                    <td style={{ padding: '9px 8px', color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
-                      {r.item_count ?? '—'}
-                    </td>
-                    <td style={{ padding: '9px 8px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text)' }}>
-                      {formatEuro(r.net_grocery_spend)}
-                    </td>
-                    <td style={{ padding: '9px 8px', fontFamily: 'var(--font-mono)', color: 'var(--good)' }}>
+                    <td className="mono" style={{ color:'var(--text-3)' }}>{r.item_count ?? '—'}</td>
+                    <td className="mono" style={{ fontWeight:600, color:'var(--text)' }}>{formatEuro(r.net_grocery_spend)}</td>
+                    <td className="mono" style={{ color:'var(--good)' }}>
                       {Number(r.bonus_savings) > 0 ? `−${formatEuro(Number(r.bonus_savings))}` : '—'}
                     </td>
-                    <td style={{ padding: '9px 8px' }}>
-                      <span style={{
-                        fontSize: 10, padding: '2px 8px', borderRadius: 100, fontWeight: 600,
-                        background: r.parsed ? 'var(--good-dim)' : r.parse_error ? 'var(--warn-dim)' : 'var(--accent-dim)',
-                        color: r.parsed ? 'var(--good)' : r.parse_error ? 'var(--warn)' : 'var(--accent)',
-                      }}>
+                    <td>
+                      <span className={`badge ${r.parsed ? 'badge-good' : r.parse_error ? 'badge-warn' : 'badge-neutral'}`}>
                         {r.parsed ? 'Parsed' : r.parse_error ? 'Error' : 'Pending'}
                       </span>
                     </td>
@@ -120,15 +186,17 @@ export default function ReceiptsPage() {
           )}
         </div>
 
-        {/* Upload panel */}
-        <div className="flex flex-col gap-4">
+        {/* ── Upload + parse panel ───────────────────────────── */}
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+
+          {/* Drop zone */}
           <div className="card p-5">
             <div className="card-label">Upload Receipts</div>
             <div
               onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
               onDragLeave={() => setIsDragging(false)}
-              onDrop={e => { e.preventDefault(); setIsDragging(false); handleUpload(e.dataTransfer.files) }}
-              onClick={() => fileRef.current?.click()}
+              onDrop={e => { e.preventDefault(); setIsDragging(false); handleFiles(e.dataTransfer.files) }}
+              onClick={() => document.getElementById('receipt-file-input')?.click()}
               style={{
                 border: `2px dashed ${isDragging ? 'var(--accent)' : 'var(--border2)'}`,
                 borderRadius: 'var(--radius-sm)',
@@ -139,57 +207,36 @@ export default function ReceiptsPage() {
                 transition: 'all 0.2s',
               }}
             >
-              <div style={{ fontSize: 24, marginBottom: 8 }}>📄</div>
-              <p style={{ fontSize: 12.5, color: 'var(--text-2)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+              <div style={{ fontSize:24, marginBottom:8 }}>📄</div>
+              <p style={{ fontSize:12.5, color:'var(--text-2)', fontFamily:'var(--font-body)', lineHeight:1.5, margin:0 }}>
                 Drop AH receipt PDFs here<br />
-                <span style={{ color: 'var(--text-4)', fontSize: 11 }}>or click to browse</span>
+                <span style={{ color:'var(--text-4)', fontSize:11 }}>or click to browse</span>
               </p>
               <input
-                ref={fileRef}
-                type="file"
-                accept=".pdf"
-                multiple
-                style={{ display: 'none' }}
-                onChange={e => e.target.files && handleUpload(e.target.files)}
+                id="receipt-file-input"
+                type="file" accept=".pdf" multiple
+                style={{ display:'none' }}
+                onChange={e => e.target.files && handleFiles(e.target.files)}
               />
             </div>
 
-            {uploading && (
-              <p style={{ fontSize: 12, color: 'var(--accent)', fontFamily: 'var(--font-mono)', marginTop: 12, textAlign: 'center' }}>
-                Uploading & parsing...
-              </p>
-            )}
-            {uploadResult && (
-              <p style={{ fontSize: 11.5, color: 'var(--text-2)', fontFamily: 'var(--font-body)', marginTop: 12, lineHeight: 1.5 }}>
-                {uploadResult}
-              </p>
-            )}
+            {uploading && <p style={{ fontSize:12, color:'var(--accent)', fontFamily:'var(--font-mono)', marginTop:10, textAlign:'center' }}>Uploading…</p>}
+            {uploadMsg && <p style={{ fontSize:11.5, color:'var(--text-2)', fontFamily:'var(--font-body)', marginTop:10, lineHeight:1.5 }}>{uploadMsg}</p>}
           </div>
 
+          {/* Bulk parse */}
           <div className="card p-5">
             <div className="card-label">Bulk Parse</div>
-            <p style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginBottom: 12 }}>
-              Trigger parsing for all pending receipts (runs in background).
+            <p style={{ fontSize:11.5, color:'var(--text-3)', fontFamily:'var(--font-body)', lineHeight:1.5, marginBottom:14 }}>
+              Parse all pending receipts. Run from Terminal for best results with 100+ receipts.
             </p>
-            <button
-              onClick={async () => {
-                setUploadResult('Triggering parse...')
-                const res = await fetch('/api/parse')
-                const data = await res.json()
-                setUploadResult(`Parsed ${data.parsed ?? 0} receipts`)
-                fetchReceipts()
-              }}
-              style={{
-                width: '100%', padding: '9px 0', borderRadius: 100,
-                background: 'var(--primary)', color: 'var(--bg)',
-                border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 600,
-                fontFamily: 'var(--font-body)',
-              }}
-            >
+            <button className="btn-primary" style={{ width:'100%', justifyContent:'center' }} onClick={parsePending}>
               Parse All Pending
             </button>
+            {parseMsg && <p style={{ fontSize:11, color:'var(--text-3)', fontFamily:'var(--font-body)', marginTop:10, textAlign:'center' }}>{parseMsg}</p>}
           </div>
         </div>
+
       </div>
     </div>
   )
