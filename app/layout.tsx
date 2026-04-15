@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
 import { Header } from '@/components/layout/Header'
@@ -7,7 +7,12 @@ import { MobileNav } from '@/components/layout/MobileNav'
 export const metadata: Metadata = {
   title: 'AH Tracker',
   description: 'Albert Heijn grocery spending tracker for Beverhof, Beverwijk',
-  viewport: 'width=device-width, initial-scale=1, viewport-fit=cover',
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
