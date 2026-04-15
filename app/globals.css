@@ -47,6 +47,10 @@
   --gauge-track:   #E8E0D4;
   --gauge-fill:    linear-gradient(90deg, #9B6B1A, #C4882A);
 
+  /* Header */
+  --header-bg:     #132C53;
+  --header-border: #1E3D70;
+
   /* Radius */
   --radius:        12px;
   --radius-sm:     8px;
@@ -91,6 +95,9 @@
   --neutral-dim:   #1A1F2E;
 
   --gauge-track:   #1A1F2E;
+  --header-bg:     #0E1018;
+  --header-border: #1C2236;
+
   --shadow-sm:     0 1px 3px rgba(0,0,0,0.3);
   --shadow:        0 2px 8px rgba(0,0,0,0.4);
   --shadow-md:     0 4px 16px rgba(0,0,0,0.5);
@@ -419,6 +426,16 @@ body {
   background-size: 400px 100%;
   animation: shimmer 1.4s infinite;
   border-radius: var(--radius-xs);
+}
+
+/* ── Section scroll offset (clears sticky header + section nav) ── */
+[id="overview"], [id="inflation"], [id="brand"], [id="waste"], [id="seasonality"], [id="forecast"] {
+  scroll-margin-top: 120px; /* header 62px + section-nav ~44px + breathing room */
+}
+@media (max-width: 768px) {
+  [id="overview"], [id="inflation"], [id="brand"], [id="waste"], [id="seasonality"], [id="forecast"] {
+    scroll-margin-top: 110px;
+  }
 }
 
 /* ── Mobile responsive overrides ────────────────────────────── */

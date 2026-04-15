@@ -54,7 +54,11 @@ export default function AnalysisPage() {
   }, [loading])
 
   const scrollTo = (id: string) => {
-    sectionRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const el = sectionRefs.current[id]
+    if (!el) return
+    const offset = 120 // header + section-nav height
+    const top = el.getBoundingClientRect().top + window.scrollY - offset
+    window.scrollTo({ top, behavior: 'smooth' })
   }
 
   if (loading) return (
