@@ -37,10 +37,14 @@ export async function POST(req: NextRequest) {
     const body = await req.json() as {
       weekSaturday?: string
       userMeals?: string
+      lunchCount?: number
+      dinnerCount?: number
       regenerate?: boolean
     }
 
     const weekSaturday = body.weekSaturday ?? format(getCurrentWeekSaturday(), 'yyyy-MM-dd')
+    const lunchCount = Math.max(0, Math.min(7, Math.floor(body.lunchCount ?? 7)))
+    const dinnerCount = Math.max(0, Math.min(7, Math.floor(body.dinnerCount ?? 7)))
 
     // Don't regenerate if exists (unless forced)
     if (!body.regenerate) {
@@ -79,6 +83,8 @@ export async function POST(req: NextRequest) {
     const mealPlan = await generateMealPlan({
       weekStart: weekSaturday,
       budget: 90,
+      lunchCount,
+      dinnerCount,
       currentDeals: deals,
       userMeals: body.userMeals,
       previousPlans,

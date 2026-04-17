@@ -4,6 +4,7 @@ import type { MealPlanData, AhDeal } from './db'
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!)
 const MODEL = 'gemini-2.5-flash-lite'
+const WEEK_DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const
 
 // ─── Helper — ask Gemini, return text ──────────────────────────
 async function ask(prompt: string, useSearch = false): Promise<string> {
@@ -24,6 +25,61 @@ function parseJSON<T>(text: string, fallback: T): T {
   } catch {
     return fallback
   }
+}
+
+function clampMealCount(count: number): number {
+  if (!Number.isFinite(count)) return 0
+  return Math.max(0, Math.min(7, Math.floor(count)))
+}
+
+function normalizeMeals(meals: MealPlanData['lunches'], expectedCount: number) {
+  const byDay = new Map<string, MealPlanData['lunches'][number]>()
+
+  for (const meal of meals) {
+    if (!meal?.day || !WEEK_DAYS.includes(meal.day as typeof WEEK_DAYS[number])) continue
+    if (!byDay.has(meal.day)) byDay.set(meal.day, meal)
+  }
+
+  return WEEK_DAYS
+    .map((day) => byDay.get(day))
+    .filter(Boolean)
+    .slice(0, expectedCount) as MealPlanData['lunches']
+}
+
+function normalizeMealPlan(mealPlan: MealPlanData, lunchCount: number, dinnerCount: number): MealPlanData {
+  return {
+    lunches: normalizeMeals(mealPlan.lunches ?? [], lunchCount),
+    dinners: normalizeMeals(mealPlan.dinners ?? [], dinnerCount),
+  }
+}
+
+function hasExactMealCounts(mealPlan: MealPlanData, lunchCount: number, dinnerCount: number): boolean {
+  return mealPlan.lunches.length === lunchCount && mealPlan.dinners.length === dinnerCount
+}
+
+async function repairMealPlanCounts(
+  mealPlan: MealPlanData,
+  lunchCount: number,
+  dinnerCount: number,
+  budget: number
+): Promise<MealPlanData> {
+  const prompt = `You are repairing a weekly meal plan JSON object.
+
+Return ONLY valid JSON with exactly ${lunchCount} lunches and exactly ${dinnerCount} dinners.
+- If a count is 0, return an empty array for that meal type.
+- Use only valid days from this ordered week: ${WEEK_DAYS.join(', ')}.
+- Keep meals on the earliest days of the week first.
+- Remove extras, fix duplicate days, and add missing meals if needed.
+- Keep the same JSON schema and stay within the overall grocery budget of €${budget}.
+
+Current meal plan JSON:
+${JSON.stringify(mealPlan)}
+
+Respond with ONLY valid JSON:
+{"lunches":[],"dinners":[]}`
+
+  const text = await ask(prompt)
+  return parseJSON<MealPlanData>(text, { lunches: [], dinners: [] })
 }
 
 // ─── Category taxonomy ──────────────────────────────────────────
@@ -118,10 +174,14 @@ Respond with ONLY valid JSON, no markdown.`
 export async function generateMealPlan(options: {
   weekStart: string
   budget: number
+  lunchCount: number
+  dinnerCount: number
   currentDeals: AhDeal[]
   userMeals?: string
   previousPlans?: string
 }): Promise<MealPlanData> {
+  const lunchCount = clampMealCount(options.lunchCount)
+  const dinnerCount = clampMealCount(options.dinnerCount)
   const dealsText = options.currentDeals.length > 0
     ? options.currentDeals.map(d => `- ${d.name}: ${d.discount}`).join('\n')
     : 'No current deals available'
@@ -134,11 +194,15 @@ Week starting: ${options.weekStart} (Saturday)
 Weekly grocery budget: €${options.budget}
 ${options.userMeals ? `User requested meals: ${options.userMeals}` : 'Generate a full AI-recommended plan'}
 ${options.previousPlans ? `Avoid repeating from recent weeks: ${options.previousPlans}` : ''}
+Requested meal counts: ${lunchCount} lunches and ${dinnerCount} dinners
 
 Current AH Bonus deals:
 ${dealsText}
 
-Generate 7 lunches + 7 dinners. Rules:
+Generate exactly ${lunchCount} lunches and exactly ${dinnerCount} dinners. Rules:
+- If requested count is 0, return [] for that meal type.
+- Only create the requested number of meals. Do not pad the rest of the week.
+- Assign meals to the earliest days of the week in order: ${WEEK_DAYS.join(', ')}.
 - All text in English
 - AH product names: Dutch first, English in brackets e.g. "Kipblokjes (chicken pieces)"
 - Prioritise Bonus deal ingredients
@@ -173,7 +237,25 @@ Respond with ONLY valid JSON, no markdown:
 }`
 
   const text = await ask(prompt)
-  return parseJSON<MealPlanData>(text, { lunches: [], dinners: [] })
+  let mealPlan = normalizeMealPlan(
+    parseJSON<MealPlanData>(text, { lunches: [], dinners: [] }),
+    lunchCount,
+    dinnerCount
+  )
+
+  if (!hasExactMealCounts(mealPlan, lunchCount, dinnerCount)) {
+    mealPlan = normalizeMealPlan(
+      await repairMealPlanCounts(mealPlan, lunchCount, dinnerCount, options.budget),
+      lunchCount,
+      dinnerCount
+    )
+  }
+
+  if (!hasExactMealCounts(mealPlan, lunchCount, dinnerCount)) {
+    throw new Error(`Meal plan generation did not match requested counts (${lunchCount} lunches, ${dinnerCount} dinners)`)
+  }
+
+  return mealPlan
 }
 
 // ─── Shopping list builder ───────────────────────────────────────
@@ -182,6 +264,8 @@ export async function buildShoppingList(mealPlan: MealPlanData, deals: AhDeal[])
     ...mealPlan.lunches.flatMap(m => m.ingredients),
     ...mealPlan.dinners.flatMap(m => m.ingredients),
   ]
+
+  if (allIngredients.length === 0) return []
 
   const prompt = `Consolidate this ingredient list into a deduplicated AH shopping list grouped by store category.
 Combine duplicates (e.g. 2x "Ui (onion) 500g" → "Ui (onion) 1kg").

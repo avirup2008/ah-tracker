@@ -19,6 +19,8 @@ export default function MealPlannerPage() {
   const [loading, setLoading]   = useState(true)
   const [generating, setGenerating] = useState(false)
   const [userMeals, setUserMeals]   = useState('')
+  const [lunchCount, setLunchCount] = useState(7)
+  const [dinnerCount, setDinnerCount] = useState(7)
   const [view, setView] = useState<View>('plan')
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null)
   const [mealType, setMealType] = useState<'lunch' | 'dinner'>('dinner')
@@ -27,7 +29,14 @@ export default function MealPlannerPage() {
   useEffect(() => {
     fetch(`/api/meal-plan?week=${weekSat}`)
       .then(r => r.json())
-      .then(data => { setMealPlan(data); setLoading(false) })
+      .then(data => {
+        setMealPlan(data)
+        if (data?.meals_json) {
+          setLunchCount(data.meals_json.lunches?.length ?? 0)
+          setDinnerCount(data.meals_json.dinners?.length ?? 0)
+        }
+        setLoading(false)
+      })
       .catch(() => setLoading(false))
   }, [weekSat])
 
@@ -38,13 +47,20 @@ export default function MealPlannerPage() {
       const res = await fetch('/api/meal-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ weekSaturday: weekSat, userMeals: userMeals || undefined, regenerate }),
+        body: JSON.stringify({
+          weekSaturday: weekSat,
+          userMeals: userMeals || undefined,
+          lunchCount,
+          dinnerCount,
+          regenerate,
+        }),
       })
       const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Generation failed')
       setMealPlan(data)
       setStatus('✅ Meal plan ready!')
-    } catch {
-      setStatus('❌ Generation failed — try again')
+    } catch (err) {
+      setStatus(err instanceof Error ? `❌ ${err.message}` : '❌ Generation failed — try again')
     } finally {
       setGenerating(false)
     }
@@ -82,9 +98,13 @@ export default function MealPlannerPage() {
         <div className="card p-6 flex flex-col gap-4">
           <div className="card-label">Generate This Week&apos;s Plan</div>
           <p style={{ fontSize: 13, color: 'var(--text-2)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
-            AI will create a full week of lunches and dinners using AH ingredients, mixed Indian &amp; European cuisine,
-            optimised for Sunday meal prep. Current Bonus deals will be prioritised.
+            AI will create exactly the number of lunches and dinners you request using AH ingredients,
+            mixed Indian &amp; European cuisine, optimised for Sunday meal prep.
           </p>
+          <div className="grid grid-cols-2 gap-3">
+            <CountInput label="Lunches" value={lunchCount} onChange={setLunchCount} />
+            <CountInput label="Dinners" value={dinnerCount} onChange={setDinnerCount} />
+          </div>
           <div>
             <label style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
               Any specific meals you want this week? (optional)
@@ -92,7 +112,7 @@ export default function MealPlannerPage() {
             <textarea
               value={userMeals}
               onChange={e => setUserMeals(e.target.value)}
-              placeholder="e.g. Chicken tikka masala on Wednesday, pasta on Friday, vegetarian on Tuesday..."
+              placeholder="e.g. 0 lunches, 3 dinners. Chicken tikka masala once, one vegetarian pasta dinner."
               rows={3}
               style={{
                 width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-sm)',
@@ -114,6 +134,11 @@ export default function MealPlannerPage() {
             >
               {generating ? 'Generating...' : '✨ Generate AI Meal Plan'}
             </button>
+            {!generating && (
+              <p style={{ fontSize: 11.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)' }}>
+                Requesting {lunchCount} lunch{lunchCount !== 1 ? 'es' : ''} and {dinnerCount} dinner{dinnerCount !== 1 ? 's' : ''}.
+              </p>
+            )}
             {status && <p style={{ fontSize: 12.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)' }}>{status}</p>}
           </div>
         </div>
@@ -237,6 +262,10 @@ export default function MealPlannerPage() {
             {/* Regenerate */}
             <div className="card p-5 flex flex-col gap-3">
               <div className="card-label">Adjust Plan</div>
+              <div className="grid grid-cols-2 gap-3">
+                <CountInput label="Lunches" value={lunchCount} onChange={setLunchCount} compact />
+                <CountInput label="Dinners" value={dinnerCount} onChange={setDinnerCount} compact />
+              </div>
               <textarea
                 value={userMeals}
                 onChange={e => setUserMeals(e.target.value)}
@@ -314,6 +343,50 @@ function TabBtn({ children, active, onClick }: { children: React.ReactNode; acti
     >
       {children}
     </button>
+  )
+}
+
+function CountInput({
+  label,
+  value,
+  onChange,
+  compact = false,
+}: {
+  label: string
+  value: number
+  onChange: (value: number) => void
+  compact?: boolean
+}) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span style={{
+        fontSize: compact ? 10 : 11,
+        color: 'var(--text-3)',
+        fontFamily: 'var(--font-mono)',
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+      }}>
+        {label}
+      </span>
+      <input
+        type="number"
+        min={0}
+        max={7}
+        value={value}
+        onChange={(e) => onChange(Math.max(0, Math.min(7, Number(e.target.value) || 0)))}
+        style={{
+          width: '100%',
+          padding: compact ? '9px 10px' : '11px 12px',
+          borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--border)',
+          background: 'var(--surface2)',
+          color: 'var(--text)',
+          fontFamily: 'var(--font-body)',
+          fontSize: compact ? 12 : 13,
+          outline: 'none',
+        }}
+      />
+    </label>
   )
 }
 
