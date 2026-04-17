@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
 import { parseReceiptText } from '@/lib/parser'
 import { categoriseItems } from '@/lib/claude'
-import { format } from 'date-fns'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

@@ -50,6 +50,6 @@ export async function GET() {
 
 // Force refresh
 export async function DELETE() {
-  await sql`DELETE FROM ah_deals_cache WHERE expires_at < NOW() + INTERVAL '48 hours'`
+  await sql`DELETE FROM ah_deals_cache`
   return NextResponse.json({ message: 'Cache cleared' })
 }

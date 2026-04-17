@@ -48,7 +48,7 @@ export function InsightsPanel({ week, forecast }: Props) {
         {savings > 0 && (
           <Insight icon="🏷️" type="good">
             <strong>Bonus savings:</strong> You saved {formatEuro(savings)} with your Bonuskaart this week.
-            Keep an eye on the Deals tab for this week's offers.
+            Keep an eye on the Deals tab for this week&apos;s offers.
           </Insight>
         )}
 
@@ -67,10 +67,10 @@ export function InsightsPanel({ week, forecast }: Props) {
         </Insight>
 
         {/* Deal reminder */}
-        <Insight icon="🛒" type="info">
-          <strong>AH Deals:</strong> Check the Deals tab for this week's Bonuskaart offers.
-          Deals are refreshed every 24 hours.
-        </Insight>
+          <Insight icon="🛒" type="info">
+            <strong>AH Deals:</strong> Check the Deals tab for this week&apos;s Bonuskaart offers.
+            Deals are refreshed every 24 hours.
+          </Insight>
       </div>
     </div>
   )

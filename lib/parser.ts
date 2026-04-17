@@ -74,6 +74,7 @@ export function parseFilename(filename: string): {
 
 export function parseReceiptText(text: string, rawText: string): ParsedReceipt | null {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+  if (lines.length === 0) return null
 
   // ── Extract store ID (first line is usually the store number)
   const storeId = lines[0]?.match(/^\d{4}$/) ? lines[0] : 'unknown'
@@ -81,12 +82,14 @@ export function parseReceiptText(text: string, rawText: string): ParsedReceipt |
   // ── Extract date and time (near bottom: "18:44 14-11-2025")
   let date = new Date()
   let time: string | null = null
+  let foundDate = false
   for (const line of lines) {
     const dtMatch = line.match(/^(\d{1,2}):(\d{2})\s+(\d{1,2})-(\d{1,2})-(\d{4})$/)
     if (dtMatch) {
       const [, hh, mm, dd, mo, yyyy] = dtMatch
       date = new Date(`${yyyy}-${mo.padStart(2,'0')}-${dd.padStart(2,'0')}`)
       time = `${hh.padStart(2,'0')}:${mm}:00`
+      foundDate = true
       break
     }
   }
@@ -226,6 +229,11 @@ export function parseReceiptText(text: string, rawText: string): ParsedReceipt |
     })
   }
 
+  const groceryItems = items.filter(i => !i.isStatiegeld && !i.isKoopzegel)
+  if (!foundDate || totalPaid <= 0 || groceryItems.length === 0) {
+    return null
+  }
+
   // ── Net grocery spend
   const netGrocerySpend = Math.max(0, totalPaid - koopzegels - statiegeld)
 
@@ -234,16 +242,14 @@ export function parseReceiptText(text: string, rawText: string): ParsedReceipt |
     date,
     time,
     items,
-    subtotal: items
-      .filter(i => !i.isStatiegeld && !i.isKoopzegel)
-      .reduce((sum, i) => sum + i.totalPrice, 0),
+    subtotal: groceryItems.reduce((sum, i) => sum + i.totalPrice, 0),
     bonusSavings,
     koopzegels,
     statiegeld,
     totalPaid,
     netGrocerySpend,
     paymentMethod,
-    itemCount: items.filter(i => !i.isStatiegeld).length,
+    itemCount: groceryItems.length,
     rawText,
   }
 }

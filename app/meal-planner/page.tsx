@@ -8,10 +8,6 @@ import type { MealPlan, MealPlanData, Meal, ShoppingListItem } from '@/lib/db'
 type View = 'plan' | 'shopping'
 
 const DAYS = ['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday','Friday']
-const DAY_SHORT: Record<string, string> = {
-  Saturday:'Sat', Sunday:'Sun', Monday:'Mon',
-  Tuesday:'Tue', Wednesday:'Wed', Thursday:'Thu', Friday:'Fri',
-}
 
 export default function MealPlannerPage() {
   const weekSat = format(getCurrentWeekSaturday(), 'yyyy-MM-dd')

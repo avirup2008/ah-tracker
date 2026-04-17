@@ -9,6 +9,31 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
+async function getCurrentDeals() {
+  const dealsCache = await sql`
+    SELECT deals_json FROM ah_deals_cache
+    WHERE expires_at > NOW()
+    ORDER BY fetched_at DESC LIMIT 1
+  `
+
+  if (dealsCache.length > 0) {
+    return dealsCache[0].deals_json
+  }
+
+  const deals = await fetchAhDeals()
+  if (deals.length > 0) {
+    await sql`
+      INSERT INTO ah_deals_cache (deals_json, expires_at)
+      VALUES (
+        ${JSON.stringify(deals)}::jsonb,
+        NOW() + INTERVAL '24 hours'
+      )
+    `
+  }
+
+  return deals
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const weekSaturday = searchParams.get('week') ?? format(getCurrentWeekSaturday(), 'yyyy-MM-dd')
@@ -57,12 +82,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get current deals
-    const dealsCache = await sql`
-      SELECT deals_json FROM ah_deals_cache
-      WHERE expires_at > NOW()
-      ORDER BY fetched_at DESC LIMIT 1
-    `
-    const deals = dealsCache.length > 0 ? dealsCache[0].deals_json : []
+    const deals = await getCurrentDeals()
 
     // Get last 2 weeks' plans to avoid repetition
     const prevPlans = await sql`

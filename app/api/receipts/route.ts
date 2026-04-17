@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
           SUM(bonus_savings)      AS total_savings
         FROM receipts
         WHERE parsed = true
+        GROUP BY week_saturday
         ORDER BY week_saturday DESC
         LIMIT ${weeks}
       `

@@ -1,5 +1,4 @@
 import sql from '@/lib/db'
-import dynamic from 'next/dynamic'
 import { SpendChartClient } from '@/components/dashboard/SpendChartClient'
 import { BudgetCard } from '@/components/dashboard/BudgetCard'
 import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown'
@@ -24,7 +23,7 @@ async function getDashboardData() {
   const yr  = now.getFullYear()
   const mo  = now.getMonth() + 1
 
-  const [weekData, monthData, lastMonthData, weeklyChart, recentReceipts, categories, totalCount] =
+  const [weekData, monthData, lastMonthData, weeklyChart, recentReceipts, categories, inflation, totalCount] =
     await Promise.all([
       sql`
         SELECT week_saturday, COUNT(*) AS receipt_count,
@@ -78,6 +77,56 @@ async function getDashboardData() {
           AND ri.category IS NOT NULL
         GROUP BY ri.category ORDER BY total DESC LIMIT 7
       `,
+      sql`
+        WITH purchase_counts AS (
+          SELECT
+            COALESCE(ri.clean_name, ri.raw_name) AS item_name,
+            COUNT(DISTINCT ri.receipt_id) AS purchase_count
+          FROM receipt_items ri
+          JOIN receipts r ON ri.receipt_id = r.id
+          WHERE ri.unit_price IS NOT NULL
+            AND r.parsed = true
+            AND ri.raw_name NOT IN ('SUBTOTAAL', 'KOOPZEGELS')
+            AND ri.is_statiegeld = false
+            AND ri.is_koopzegel = false
+          GROUP BY COALESCE(ri.clean_name, ri.raw_name)
+          HAVING COUNT(DISTINCT ri.receipt_id) >= 3
+        ),
+        item_prices AS (
+          SELECT
+            COALESCE(ri.clean_name, ri.raw_name) AS item_name,
+            ri.category,
+            ri.unit_price,
+            r.receipt_date,
+            ROW_NUMBER() OVER (
+              PARTITION BY COALESCE(ri.clean_name, ri.raw_name)
+              ORDER BY r.receipt_date ASC
+            ) AS rn_asc,
+            ROW_NUMBER() OVER (
+              PARTITION BY COALESCE(ri.clean_name, ri.raw_name)
+              ORDER BY r.receipt_date DESC
+            ) AS rn_desc
+          FROM receipt_items ri
+          JOIN receipts r ON ri.receipt_id = r.id
+          JOIN purchase_counts pc ON COALESCE(ri.clean_name, ri.raw_name) = pc.item_name
+          WHERE ri.unit_price IS NOT NULL
+            AND r.parsed = true
+            AND ri.raw_name NOT IN ('SUBTOTAAL', 'KOOPZEGELS')
+            AND ri.is_statiegeld = false
+            AND ri.is_koopzegel = false
+        )
+        SELECT
+          ip.item_name AS clean_name,
+          ip.category,
+          pc.purchase_count,
+          MAX(CASE WHEN ip.rn_asc = 1 THEN ip.unit_price END) AS first_price,
+          MAX(CASE WHEN ip.rn_desc = 1 THEN ip.unit_price END) AS latest_price
+        FROM item_prices ip
+        JOIN purchase_counts pc ON ip.item_name = pc.item_name
+        GROUP BY ip.item_name, ip.category, pc.purchase_count
+        ORDER BY pc.purchase_count DESC
+        LIMIT 6
+      `,
       sql`SELECT COUNT(*) AS count FROM receipts`,
     ])
 
@@ -107,6 +156,7 @@ async function getDashboardData() {
     weeklyChart:    plain([...weeklyChart].reverse()),
     recentReceipts: plain(recentReceipts),
     categories:     plain(categories),
+    inflation:      plain(inflation),
     totalReceipts:  parseInt(String(totalCount[0]?.count ?? '0')),
   }
 }
@@ -153,11 +203,8 @@ export default async function DashboardPage() {
 
       {/* ── Row 2 — AI Insights (full width) ──────────────────── */}
       <AiInsightsDashboard
-        weekSpend={data.weekSpend}
-        monthSpend={data.monthSpend}
         projected={data.projected}
         monthlyTarget={data.MONTHLY_TARGET}
-        moDelta={data.moDelta}
       />
 
       {/* ── Row 3 — Categories + Recent Receipts ──────────────── */}
@@ -168,10 +215,8 @@ export default async function DashboardPage() {
 
       {/* ── Row 4 — Inflation + Meal Plan ─────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <InflationTracker items={[] as any} />
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <MealPlanPreview mealPlan={mealPlan as any} />
+        <InflationTracker items={data.inflation} />
+        <MealPlanPreview mealPlan={mealPlan} />
       </div>
 
     </div>

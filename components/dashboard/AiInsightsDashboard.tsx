@@ -4,11 +4,8 @@ import { useState } from 'react'
 import { formatEuro } from '@/lib/utils'
 
 interface Props {
-  weekSpend:     number
-  monthSpend:    number
   projected:     number
   monthlyTarget: number
-  moDelta:       number | null
 }
 
 function renderMarkdown(text: string) {
@@ -60,7 +57,7 @@ function renderMarkdown(text: string) {
   return result
 }
 
-export function AiInsightsDashboard({ weekSpend, monthSpend, projected, monthlyTarget, moDelta }: Props) {
+export function AiInsightsDashboard({ projected, monthlyTarget }: Props) {
   const [open, setOpen]         = useState(false)
   const [loading, setLoading]   = useState(false)
   const [text, setText]         = useState('')
