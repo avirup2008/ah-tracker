@@ -11,7 +11,7 @@ import { useTheme } from 'next-themes'
 const SECTIONS = [
   { id: 'overview',   label: '📊 Overview'    },
   { id: 'inflation',  label: '📈 Inflation'   },
-  { id: 'brand',      label: '🔄 Brand Switch' },
+  { id: 'brand-switch', label: '🔄 Brand Switch' },
   { id: 'waste',      label: '🗑️ Waste'       },
   { id: 'seasonality',label: '🌡️ Seasonality' },
   { id: 'forecast',   label: '🔮 Forecast'    },
@@ -252,7 +252,7 @@ export default function AnalysisPage() {
       {/* ════════════════════════════════════════════════════════
           SECTION 3 — BRAND SWITCH
       ════════════════════════════════════════════════════════ */}
-      <div id="brand" ref={el => { sectionRefs.current.brand = el }}>
+      <div id="brand-switch" ref={el => { sectionRefs.current['brand-switch'] = el }}>
         <div className="section-header">
           <div className="section-accent" style={{ background:'var(--info)' }} />
           <div className="section-title">Brand Switching</div>

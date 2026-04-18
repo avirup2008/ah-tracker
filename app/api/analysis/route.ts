@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
     }
 
     // ── B: Brand switching ─────────────────────────────────────
-    if (feature === 'all' || feature === 'brand-switch') {
+    if (feature === 'all' || feature === 'brand-switch' || feature === 'brand') {
       // Use real Gemini categories — no keyword guessing, no Overig bucket
       const rows = await sql`
         SELECT
