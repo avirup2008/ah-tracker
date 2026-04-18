@@ -108,6 +108,19 @@ CREATE TABLE IF NOT EXISTS ah_deals_cache (
   deals_json  JSONB         NOT NULL
 );
 
+-- ─── Pantry Items ────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pantry_items (
+  id              SERIAL PRIMARY KEY,
+  name            TEXT        NOT NULL,
+  normalized_name TEXT        NOT NULL,
+  quantity_note   TEXT,
+  category        TEXT,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS pantry_items_normalized_name_idx ON pantry_items(normalized_name);
+
 -- ─── Helper: get week's Saturday ─────────────────────────────────
 -- Usage: SELECT get_week_saturday('2025-11-14'::date);
 CREATE OR REPLACE FUNCTION get_week_saturday(d DATE)

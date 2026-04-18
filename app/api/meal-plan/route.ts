@@ -35,6 +35,18 @@ async function getCurrentDeals() {
   return deals
 }
 
+async function getPantryItems() {
+  const rows = await sql`
+    SELECT name, quantity_note
+    FROM pantry_items
+    ORDER BY updated_at DESC, id DESC
+  `
+
+  return rows.map((row: Record<string, unknown>) =>
+    row.quantity_note ? `${row.name} (${row.quantity_note})` : String(row.name)
+  )
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const weekSaturday = searchParams.get('week') ?? format(getCurrentWeekSaturday(), 'yyyy-MM-dd')
@@ -69,7 +81,6 @@ export async function POST(req: NextRequest) {
       servings?: number
       maxPrepTime?: number
       vegetarianDays?: number
-      pantryItems?: string
       mealPrepPreference?: 'high' | 'balanced' | 'minimal'
       cuisineMode?: 'mixed' | 'indian' | 'european'
     }
@@ -80,10 +91,6 @@ export async function POST(req: NextRequest) {
     const servings = Math.max(1, Math.min(8, Math.floor(body.servings ?? 2)))
     const maxPrepTime = Math.max(10, Math.min(90, Math.floor(body.maxPrepTime ?? 30)))
     const vegetarianDays = Math.max(0, Math.min(dinnerCount, Math.floor(body.vegetarianDays ?? 0)))
-    const pantryItems = body.pantryItems
-      ?.split(',')
-      .map(item => item.trim())
-      .filter(Boolean) ?? []
     const mealPrepPreference = body.mealPrepPreference ?? 'balanced'
     const cuisineMode = body.cuisineMode ?? 'mixed'
     const cuisinePreferences = cuisineMode === 'mixed'
@@ -103,6 +110,7 @@ export async function POST(req: NextRequest) {
     // Get current deals
     const deals = await getCurrentDeals()
     const stapleProducts = (await getProductIntelligence(10)).map(product => product.name)
+    const pantryItems = await getPantryItems()
 
     // Get last 2 weeks' plans to avoid repetition
     const prevPlans = await sql`

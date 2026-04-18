@@ -121,6 +121,16 @@ const tables = [
     deals_json  JSONB         NOT NULL
   )`,
 
+  `CREATE TABLE IF NOT EXISTS pantry_items (
+    id              SERIAL PRIMARY KEY,
+    name            TEXT        NOT NULL,
+    normalized_name TEXT        NOT NULL,
+    quantity_note   TEXT,
+    category        TEXT,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
+  )`,
+
   `CREATE INDEX IF NOT EXISTS receipts_date_idx   ON receipts(receipt_date)`,
   `CREATE INDEX IF NOT EXISTS receipts_year_idx   ON receipts(year, month)`,
   `CREATE INDEX IF NOT EXISTS receipts_week_idx   ON receipts(week_saturday)`,
@@ -128,6 +138,7 @@ const tables = [
   `CREATE INDEX IF NOT EXISTS items_category_idx  ON receipt_items(category)`,
   `CREATE INDEX IF NOT EXISTS items_normalized_name_idx ON receipt_items(normalized_name)`,
   `CREATE INDEX IF NOT EXISTS items_own_brand_idx ON receipt_items(is_own_brand)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS pantry_items_normalized_name_idx ON pantry_items(normalized_name)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS meal_plans_week_idx ON meal_plans(week_saturday)`,
 
   `CREATE OR REPLACE FUNCTION get_week_saturday(d DATE)

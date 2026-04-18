@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import { getCurrentWeekSaturday, formatEuro, formatWeekRange } from '@/lib/utils'
-import type { MealPlan, MealPlanData, Meal, ShoppingListItem } from '@/lib/db'
+import type { MealPlan, MealPlanData, Meal, PantryItem, ShoppingListItem } from '@/lib/db'
 
 type View = 'plan' | 'shopping'
 type MealPrepPreference = 'high' | 'balanced' | 'minimal'
@@ -15,6 +15,12 @@ interface ProductInsight {
   purchase_count: number
   total_spend: number
   last_bought: string | null
+}
+
+interface PantryDraft {
+  name: string
+  quantity_note: string
+  category: string
 }
 
 interface MealPlanReconciliation {
@@ -58,7 +64,6 @@ export default function MealPlannerPage() {
   const [servings, setServings] = useState(2)
   const [maxPrepTime, setMaxPrepTime] = useState(30)
   const [vegetarianDays, setVegetarianDays] = useState(1)
-  const [pantryItems, setPantryItems] = useState('')
   const [mealPrepPreference, setMealPrepPreference] = useState<MealPrepPreference>('balanced')
   const [cuisineMode, setCuisineMode] = useState<CuisineMode>('mixed')
   const [view, setView] = useState<View>('plan')
@@ -67,6 +72,10 @@ export default function MealPlannerPage() {
   const [status, setStatus] = useState('')
   const [products, setProducts] = useState<ProductInsight[]>([])
   const [reconciliation, setReconciliation] = useState<MealPlanReconciliation | null>(null)
+  const [pantryItems, setPantryItems] = useState<PantryItem[]>([])
+  const [pantryDraft, setPantryDraft] = useState<PantryDraft>({ name: '', quantity_note: '', category: '' })
+  const [pantrySaving, setPantrySaving] = useState(false)
+  const [pantryMsg, setPantryMsg] = useState('')
 
   useEffect(() => {
     fetch(`/api/meal-plan?week=${weekSat}`)
@@ -101,6 +110,16 @@ export default function MealPlannerPage() {
       .catch(() => setProducts([]))
   }, [])
 
+  const fetchPantry = async () => {
+    const res = await fetch('/api/pantry')
+    const data = await res.json()
+    setPantryItems(data.items ?? [])
+  }
+
+  useEffect(() => {
+    fetchPantry().catch(() => setPantryItems([]))
+  }, [])
+
   useEffect(() => {
     setVegetarianDays((current) => Math.min(current, dinnerCount))
   }, [dinnerCount])
@@ -120,7 +139,6 @@ export default function MealPlannerPage() {
           servings,
           maxPrepTime,
           vegetarianDays,
-          pantryItems,
           mealPrepPreference,
           cuisineMode,
           regenerate,
@@ -170,7 +188,7 @@ export default function MealPlannerPage() {
           <div className="card-label">Generate This Week&apos;s Plan</div>
           <p style={{ fontSize: 13, color: 'var(--text-2)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
             AI will create exactly the number of lunches and dinners you request using AH ingredients,
-            your pantry items, your frequent staples, and the structured constraints below.
+            your saved pantry items, your frequent staples, and the structured constraints below.
           </p>
           <div className="grid grid-cols-2 gap-3">
             <CountInput label="Lunches" value={lunchCount} onChange={setLunchCount} />
@@ -203,22 +221,16 @@ export default function MealPlannerPage() {
               ]}
             />
           </div>
-          <div>
-            <label style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
-              Pantry Items You Already Have
-            </label>
-            <input
-              type="text"
-              value={pantryItems}
-              onChange={e => setPantryItems(e.target.value)}
-              placeholder="e.g. rice, onions, olive oil, garam masala"
-              style={{
-                width: '100%', padding: '11px 12px', borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border)', background: 'var(--surface2)',
-                color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 13, outline: 'none',
-              }}
-            />
-          </div>
+          <PantryPanel
+            items={pantryItems}
+            draft={pantryDraft}
+            onDraftChange={setPantryDraft}
+            onRefresh={() => fetchPantry()}
+            saving={pantrySaving}
+            message={pantryMsg}
+            setSaving={setPantrySaving}
+            setMessage={setPantryMsg}
+          />
           <div>
             <label style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
               Any specific meals you want this week? (optional)
@@ -460,12 +472,16 @@ export default function MealPlannerPage() {
                 ]}
                 compact
               />
-              <input
-                type="text"
-                value={pantryItems}
-                onChange={e => setPantryItems(e.target.value)}
-                placeholder="Pantry items (comma-separated)"
-                style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 12, outline: 'none' }}
+              <PantryPanel
+                items={pantryItems}
+                draft={pantryDraft}
+                onDraftChange={setPantryDraft}
+                onRefresh={() => fetchPantry()}
+                saving={pantrySaving}
+                message={pantryMsg}
+                setSaving={setPantrySaving}
+                setMessage={setPantryMsg}
+                compact
               />
               <textarea
                 value={userMeals}
@@ -691,6 +707,133 @@ function MetricCard({
     <div className="card p-3" style={{ background: 'var(--surface2)' }}>
       <div style={{ fontSize: 10, color: 'var(--text-4)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{label}</div>
       <div className="mono" style={{ fontSize: 18, fontWeight: 700, color, marginTop: 6 }}>{value}</div>
+    </div>
+  )
+}
+
+function PantryPanel({
+  items,
+  draft,
+  onDraftChange,
+  onRefresh,
+  saving,
+  message,
+  setSaving,
+  setMessage,
+  compact = false,
+}: {
+  items: PantryItem[]
+  draft: PantryDraft
+  onDraftChange: (draft: PantryDraft) => void
+  onRefresh: () => Promise<void> | void
+  saving: boolean
+  message: string
+  setSaving: (value: boolean) => void
+  setMessage: (value: string) => void
+  compact?: boolean
+}) {
+  const saveItem = async () => {
+    if (!draft.name.trim()) {
+      setMessage('Pantry item name is required')
+      return
+    }
+
+    setSaving(true)
+    setMessage('Saving pantry item…')
+    try {
+      const res = await fetch('/api/pantry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(draft),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to save pantry item')
+      onDraftChange({ name: '', quantity_note: '', category: '' })
+      setMessage('✅ Pantry updated')
+      await onRefresh()
+    } catch (err) {
+      setMessage(err instanceof Error ? `❌ ${err.message}` : '❌ Failed to save pantry item')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const removeItem = async (id: number) => {
+    setSaving(true)
+    setMessage('Removing pantry item…')
+    try {
+      const res = await fetch(`/api/pantry/${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to remove pantry item')
+      setMessage('✅ Pantry updated')
+      await onRefresh()
+    } catch (err) {
+      setMessage(err instanceof Error ? `❌ ${err.message}` : '❌ Failed to remove pantry item')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="card p-4" style={compact ? { background: 'var(--surface2)' } : undefined}>
+      <div className="card-label" style={{ marginBottom: 8 }}>Saved Pantry</div>
+      <p style={{ fontSize: compact ? 11 : 11.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)', lineHeight: 1.45, marginBottom: 10 }}>
+        Persist staples and leftovers here so planning can reuse what you already have.
+      </p>
+      <div className="grid grid-cols-1 gap-2">
+        <input
+          type="text"
+          value={draft.name}
+          onChange={(e) => onDraftChange({ ...draft, name: e.target.value })}
+          placeholder="e.g. Basmati rice"
+          style={{ width: '100%', padding: compact ? '9px 10px' : '11px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: compact ? 12 : 13, outline: 'none' }}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            type="text"
+            value={draft.quantity_note}
+            onChange={(e) => onDraftChange({ ...draft, quantity_note: e.target.value })}
+            placeholder="Quantity note"
+            style={{ width: '100%', padding: compact ? '9px 10px' : '11px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: compact ? 12 : 13, outline: 'none' }}
+          />
+          <input
+            type="text"
+            value={draft.category}
+            onChange={(e) => onDraftChange({ ...draft, category: e.target.value })}
+            placeholder="Category"
+            style={{ width: '100%', padding: compact ? '9px 10px' : '11px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: compact ? 12 : 13, outline: 'none' }}
+          />
+        </div>
+        <button
+          onClick={saveItem}
+          disabled={saving}
+          style={{ padding: compact ? '9px 0' : '10px 0', borderRadius: 100, border: 'none', cursor: saving ? 'not-allowed' : 'pointer', background: 'var(--primary)', color: 'var(--bg)', fontSize: compact ? 12 : 13, fontWeight: 600, fontFamily: 'var(--font-body)' }}
+        >
+          {saving ? 'Saving…' : 'Add Pantry Item'}
+        </button>
+      </div>
+
+      {message && (
+        <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-body)', marginTop: 10 }}>{message}</p>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+        {items.length === 0 ? (
+          <p style={{ fontSize: 11.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)' }}>No saved pantry items yet.</p>
+        ) : (
+          items.slice(0, compact ? 6 : 12).map((item) => (
+            <div key={item.id} className="flex items-center justify-between rounded-[var(--radius-sm)] border p-2.5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <div>
+                <div style={{ fontSize: compact ? 11.5 : 12.5, color: 'var(--text)', fontFamily: 'var(--font-body)' }}>{item.name}</div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)' }}>
+                  {[item.quantity_note, item.category].filter(Boolean).join(' · ') || 'No extra details'}
+                </div>
+              </div>
+              <button className="btn-ghost" style={{ fontSize: 11 }} onClick={() => removeItem(item.id)}>Remove</button>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   )
 }

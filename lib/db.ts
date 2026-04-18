@@ -113,3 +113,13 @@ export interface AhDeal {
   recommendation?: 'buy_now' | 'good_if_needed'
   score?: number
 }
+
+export interface PantryItem {
+  id: number
+  name: string
+  normalized_name: string
+  quantity_note: string | null
+  category: string | null
+  created_at: string
+  updated_at: string
+}
