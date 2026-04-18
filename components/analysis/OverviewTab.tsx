@@ -70,7 +70,7 @@ export default function OverviewTab() {
       const iData = await iRes.json()
       if (iData.error) throw new Error(iData.error)
 
-      // Call Gemini directly via the Anthropic API proxy (using Claude instead)
+      // Call the server route that proxies Gemini generation
       const res = await fetch('/api/ai-insights/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -124,7 +124,7 @@ export default function OverviewTab() {
             <div>
               <div className="card-label" style={{ marginBottom: 2 }}>AI Spend Analysis</div>
               <div style={{ fontSize: 11, color: 'var(--text-4)', fontFamily: 'var(--font-body)' }}>
-                Powered by Claude · based on your real data
+                Powered by Gemini · based on your real data
               </div>
             </div>
             <button
@@ -166,7 +166,7 @@ export default function OverviewTab() {
           {aiLoading && (
             <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:10, padding:'32px 0' }}>
               <div style={{ width:6,height:6,borderRadius:'50%',background:accent,animation:'pulse 1s infinite' }} />
-              <span style={{ fontSize:12.5, color:'var(--text-3)', fontFamily:'var(--font-body)' }}>Claude is reading your spending data…</span>
+              <span style={{ fontSize:12.5, color:'var(--text-3)', fontFamily:'var(--font-body)' }}>Gemini is reading your spending data…</span>
             </div>
           )}
 

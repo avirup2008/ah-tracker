@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
-import { generateMealPlan, buildShoppingList } from '@/lib/claude'
-import { fetchAhDeals } from '@/lib/claude'
+import { generateMealPlan, buildShoppingList } from '@/lib/ai'
+import { fetchAhDeals } from '@/lib/ai'
 import { format } from 'date-fns'
 import { getCurrentWeekSaturday } from '@/lib/utils'
 

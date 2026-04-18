@@ -10,7 +10,7 @@ Analyses 116+ receipts, tracks inflation, detects waste, plans meals with AH ing
 - **Framework**: Next.js 15 App Router
 - **Database**: Vercel Postgres (Neon)
 - **File Storage**: Vercel Blob
-- **AI**: Anthropic Claude (receipt parsing, categorisation, meal planning, deals)
+- **AI**: Google Gemini (categorisation, meal planning, deals)
 - **Charts**: Recharts
 - **Styling**: Tailwind CSS + custom CSS variables (Warm Analyst ↔ Midnight Carbon)
 
@@ -47,9 +47,9 @@ vercel link   # create new project
 2. Name it `ah-tracker-blob`
 3. Copy `BLOB_READ_WRITE_TOKEN` to `.env.local`
 
-### 5. Get Anthropic API key
+### 5. Get Google AI Studio API key
 
-1. Go to [console.anthropic.com](https://console.anthropic.com)
+1. Go to [Google AI Studio](https://aistudio.google.com)
 2. Create API key → copy to `.env.local`
 
 ### 6. Set up environment variables
@@ -64,7 +64,7 @@ Your `.env.local` should look like:
 POSTGRES_URL="postgres://..."
 POSTGRES_URL_NON_POOLING="postgres://..."
 BLOB_READ_WRITE_TOKEN="vercel_blob_..."
-ANTHROPIC_API_KEY="sk-ant-..."
+GOOGLE_API_KEY="AIza..."
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
 
@@ -102,7 +102,7 @@ pip3 install requests python-dotenv
 NEXT_PUBLIC_APP_URL=https://your-app.vercel.app python3 scripts/bulk-upload.py
 ```
 
-Then open your app → Receipts → "Parse All Pending" to trigger AI categorisation.
+Then open your app → Receipts → "Parse All Pending" to trigger Gemini categorisation.
 
 ---
 
@@ -118,8 +118,8 @@ Then open your app → Receipts → "Parse All Pending" to trigger AI categorisa
 | **Analysis D** | Price seasonality — monthly price averages |
 | **Analysis E** | Bonus deal tracking — your frequent deal items |
 | **Analysis H** | Monthly budget forecast |
-| **Meal Planner** | AI-generated 7-day plan (lunches + dinners), Indian + European, recipe cards, shopping list |
-| **Deals** | Current AH Bonus deals (AI web search, 24h cache) |
+| **Meal Planner** | AI-generated meal plan with configurable lunch and dinner counts, recipe cards, shopping list |
+| **Deals** | Current AH Bonus deals (Gemini web grounding, 24h cache) |
 | **Theme Toggle** | Warm Analyst (light) ↔ Midnight Carbon (dark) |
 
 ---
@@ -159,7 +159,7 @@ ah-tracker/
 │   ├── layout/        Header, ThemeToggle, ThemeProvider
 │   └── ui/            Shared UI components
 ├── lib/
-│   ├── claude.ts      All Claude API calls
+│   ├── ai.ts          Gemini and AI integration helpers
 │   ├── db.ts          Postgres client + types
 │   ├── parser.ts      AH receipt text parser
 │   └── utils.ts       Formatters and helpers

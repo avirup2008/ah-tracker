@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
 import { parseReceiptText } from '@/lib/parser'
-import { categoriseItems } from '@/lib/claude'
+import { categoriseItems } from '@/lib/ai'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

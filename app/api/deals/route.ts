@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import sql from '@/lib/db'
-import { fetchAhDeals } from '@/lib/claude'
+import { fetchAhDeals } from '@/lib/ai'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -24,7 +24,7 @@ export async function GET() {
       })
     }
 
-    // Fetch fresh deals via Claude web search
+    // Fetch fresh deals via Gemini web grounding
     const deals = await fetchAhDeals()
 
     if (deals.length > 0) {
