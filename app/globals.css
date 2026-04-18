@@ -244,6 +244,18 @@ body {
 .insight-warn { background: var(--warn-dim);    border-color: color-mix(in srgb, var(--warn) 20%, transparent); }
 .insight-info { background: var(--info-dim);    border-color: color-mix(in srgb, var(--info) 20%, transparent); }
 
+.editor-input {
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 12px;
+  outline: none;
+}
+
 /* ── Sticky mini-nav (analysis sections) ─────────────────────── */
 .section-nav {
   position: sticky;
