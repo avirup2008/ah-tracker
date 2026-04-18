@@ -85,3 +85,18 @@ test('parseReceiptText supports item names split across multiple lines', () => {
   assert.equal(parsed.items[0]?.totalPrice, 3.29)
   assert.equal(parsed.items[1]?.rawName, 'AH BROOD')
 })
+
+test('parseReceiptText keeps refund lines and flexible koopzegel labels in totals', () => {
+  const rawText = readFixture('receipt-return-koopzegels.txt')
+  const parsed = parseReceiptText(rawText, rawText)
+
+  assert.ok(parsed)
+  assert.equal(parsed.paymentMethod, 'PIN')
+  assert.equal(parsed.itemCount, 3)
+  assert.equal(parsed.koopzegels, 4.2)
+  assert.equal(parsed.subtotal, 1.99)
+  assert.equal(parsed.totalPaid, 6.19)
+  assert.equal(parsed.netGrocerySpend, 1.99)
+  assert.equal(parsed.items[2]?.rawName, 'AH PASTA')
+  assert.equal(parsed.items[2]?.totalPrice, -2.49)
+})

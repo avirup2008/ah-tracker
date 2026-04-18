@@ -56,6 +56,10 @@ function parseDutchAmount(s: string): number {
   return parseFloat(s.replace(',', '.'))
 }
 
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
 function normalizeLines(text: string): string[] {
   return text.split('\n').map((line) => line.trim()).filter(Boolean)
 }
@@ -96,8 +100,8 @@ function extractPaymentMethod(line: string, current: string | null): string | nu
 }
 
 function extractKoopzegels(line: string): number | null {
-  const koopMatch = line.match(/^(\d+)\s+KOOPZEGELS\s+\w+\s+(\d+,\d{2})$/)
-  return koopMatch ? parseDutchAmount(koopMatch[2]) : null
+  const koopMatch = line.match(/^\d+\s+KOOPZEGELS(?:\s+.+?)?\s+(\d+,\d{2})$/)
+  return koopMatch ? parseDutchAmount(koopMatch[1]) : null
 }
 
 function extractBonusDiscount(line: string): number | null {
@@ -251,8 +255,8 @@ function buildParsedReceipt(
   const groceryItems = state.items.filter((item) => !item.isStatiegeld && !item.isKoopzegel)
   if (state.totalPaid <= 0 || groceryItems.length === 0) return null
 
-  const subtotal = groceryItems.reduce((sum, item) => sum + item.totalPrice, 0)
-  const netGrocerySpend = Math.max(0, state.totalPaid - state.koopzegels - state.statiegeld)
+  const subtotal = roundMoney(groceryItems.reduce((sum, item) => sum + item.totalPrice, 0))
+  const netGrocerySpend = roundMoney(Math.max(0, state.totalPaid - state.koopzegels - state.statiegeld))
 
   return {
     storeId,
@@ -260,10 +264,10 @@ function buildParsedReceipt(
     time: dateTime.time,
     items: state.items,
     subtotal,
-    bonusSavings: state.bonusSavings,
-    koopzegels: state.koopzegels,
-    statiegeld: state.statiegeld,
-    totalPaid: state.totalPaid,
+    bonusSavings: roundMoney(state.bonusSavings),
+    koopzegels: roundMoney(state.koopzegels),
+    statiegeld: roundMoney(state.statiegeld),
+    totalPaid: roundMoney(state.totalPaid),
     netGrocerySpend,
     paymentMethod: state.paymentMethod,
     itemCount: groceryItems.length,
