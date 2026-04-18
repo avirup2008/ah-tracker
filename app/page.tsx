@@ -7,6 +7,7 @@ import { InflationTracker } from '@/components/dashboard/InflationTracker'
 import { MealPlanPreview } from '@/components/dashboard/MealPlanPreview'
 import { HealthStrip } from '@/components/dashboard/HealthStrip'
 import { AiInsightsDashboard } from '@/components/dashboard/AiInsightsDashboard'
+import { reconcileMealPlan } from '@/lib/reconciliation'
 
 export const revalidate = 0
 export const fetchCache = 'force-no-store'
@@ -172,6 +173,7 @@ async function getMealPlan() {
 
 export default async function DashboardPage() {
   const [data, mealPlan] = await Promise.all([getDashboardData(), getMealPlan()])
+  const reconciliation = await reconcileMealPlan(mealPlan)
 
   return (
     <div className="flex flex-col gap-5">
@@ -218,7 +220,7 @@ export default async function DashboardPage() {
       {/* ── Row 4 — Inflation + Meal Plan ─────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <InflationTracker items={data.inflation} />
-        <MealPlanPreview mealPlan={mealPlan} />
+        <MealPlanPreview mealPlan={mealPlan} reconciliation={reconciliation} />
       </div>
 
     </div>

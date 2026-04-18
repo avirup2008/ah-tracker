@@ -17,6 +17,34 @@ interface ProductInsight {
   last_bought: string | null
 }
 
+interface MealPlanReconciliation {
+  week_saturday: string
+  planned_items: number
+  matched_items: number
+  missing_items: number
+  adherence_pct: number
+  planned_estimated_cost: number
+  matched_actual_spend: number
+  impulse_spend: number
+  matched: Array<{
+    planned_name: string
+    matched_name: string | null
+    quantity?: string
+    actual_spend?: number | null
+  }>
+  missing: Array<{
+    planned_name: string
+    quantity?: string
+    est_price?: number | null
+  }>
+  unplanned: Array<{
+    name: string
+    category: string | null
+    spend: number
+    purchase_count: number
+  }>
+}
+
 const DAYS = ['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday','Friday']
 
 export default function MealPlannerPage() {
@@ -38,6 +66,7 @@ export default function MealPlannerPage() {
   const [mealType, setMealType] = useState<'lunch' | 'dinner'>('dinner')
   const [status, setStatus] = useState('')
   const [products, setProducts] = useState<ProductInsight[]>([])
+  const [reconciliation, setReconciliation] = useState<MealPlanReconciliation | null>(null)
 
   useEffect(() => {
     fetch(`/api/meal-plan?week=${weekSat}`)
@@ -52,6 +81,18 @@ export default function MealPlannerPage() {
       })
       .catch(() => setLoading(false))
   }, [weekSat])
+
+  useEffect(() => {
+    if (!mealPlan) {
+      setReconciliation(null)
+      return
+    }
+
+    fetch(`/api/meal-plan/reconciliation?week=${weekSat}`)
+      .then(r => r.json())
+      .then(data => setReconciliation(data))
+      .catch(() => setReconciliation(null))
+  }, [mealPlan, weekSat])
 
   useEffect(() => {
     fetch('/api/product-intelligence?limit=8')
@@ -308,6 +349,51 @@ export default function MealPlannerPage() {
 
           {/* Sidebar — totals + regenerate */}
           <div className="flex flex-col gap-4">
+            {reconciliation && reconciliation.planned_items > 0 && (
+              <div className="card p-5">
+                <div className="card-label">Plan Reconciliation</div>
+                <p style={{ fontSize: 11.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)', marginTop: 4, lineHeight: 1.5 }}>
+                  Compared against purchases made in the same Saturday-to-Friday week.
+                </p>
+                <div className="grid grid-cols-3 gap-3 mt-4">
+                  <MetricCard label="Adherence" value={`${reconciliation.adherence_pct}%`} tone={reconciliation.adherence_pct >= 60 ? 'good' : 'accent'} />
+                  <MetricCard label="Matched" value={`${reconciliation.matched_items}/${reconciliation.planned_items}`} tone="neutral" />
+                  <MetricCard label="Impulse Spend" value={formatEuro(reconciliation.impulse_spend)} tone={reconciliation.impulse_spend > 0 ? 'accent' : 'good'} />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <div className="mono" style={{ fontSize: 10, color: 'var(--text-4)', marginBottom: 10, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Missing planned items</div>
+                    {reconciliation.missing.length === 0 ? (
+                      <p style={{ fontSize: 12, color: 'var(--good)', fontFamily: 'var(--font-body)' }}>Everything planned was bought.</p>
+                    ) : (
+                      reconciliation.missing.slice(0, 6).map((item, index) => (
+                        <div key={`${item.planned_name}-${index}`} className="flex items-center justify-between py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+                          <span style={{ fontSize: 12, color: 'var(--text)', fontFamily: 'var(--font-body)' }}>{item.planned_name}</span>
+                          <span className="mono" style={{ fontSize: 11, color: 'var(--text-4)' }}>{item.quantity ?? 'planned'}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div>
+                    <div className="mono" style={{ fontSize: 10, color: 'var(--text-4)', marginBottom: 10, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Unplanned purchases</div>
+                    {reconciliation.unplanned.length === 0 ? (
+                      <p style={{ fontSize: 12, color: 'var(--good)', fontFamily: 'var(--font-body)' }}>No impulse purchases detected.</p>
+                    ) : (
+                      reconciliation.unplanned.slice(0, 6).map((item, index) => (
+                        <div key={`${item.name}-${index}`} className="flex items-center justify-between py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+                          <div>
+                            <div style={{ fontSize: 12, color: 'var(--text)', fontFamily: 'var(--font-body)' }}>{item.name}</div>
+                            <div style={{ fontSize: 10.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)' }}>{item.category ?? 'Uncategorised'} · {item.purchase_count} trip{item.purchase_count !== 1 ? 's' : ''}</div>
+                          </div>
+                          <span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text)' }}>{formatEuro(item.spend)}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="card p-5">
               <div className="card-label">Week Summary</div>
               <div className="flex flex-col gap-3 mt-2">
@@ -588,5 +674,23 @@ function Tag({ children, color = 'accent' }: { children: React.ReactNode; color?
     }}>
       {children}
     </span>
+  )
+}
+
+function MetricCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: string
+  tone: 'good' | 'accent' | 'neutral'
+}) {
+  const color = tone === 'good' ? 'var(--good)' : tone === 'accent' ? 'var(--accent)' : 'var(--text)'
+  return (
+    <div className="card p-3" style={{ background: 'var(--surface2)' }}>
+      <div style={{ fontSize: 10, color: 'var(--text-4)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{label}</div>
+      <div className="mono" style={{ fontSize: 18, fontWeight: 700, color, marginTop: 6 }}>{value}</div>
+    </div>
   )
 }

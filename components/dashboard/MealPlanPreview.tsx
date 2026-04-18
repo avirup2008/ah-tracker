@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { formatEuro } from '@/lib/utils'
 import type { MealPlan } from '@/lib/db'
+import type { MealPlanReconciliation } from '@/lib/reconciliation'
 
 const DAYS = ['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday','Friday']
 const DAY_SHORT: Record<string, string> = {
@@ -10,7 +11,13 @@ const DAY_SHORT: Record<string, string> = {
   Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri',
 }
 
-export function MealPlanPreview({ mealPlan }: { mealPlan: MealPlan | null }) {
+export function MealPlanPreview({
+  mealPlan,
+  reconciliation,
+}: {
+  mealPlan: MealPlan | null
+  reconciliation: MealPlanReconciliation | null
+}) {
   if (!mealPlan) {
     return (
       <div className="card p-5 flex flex-col gap-4">
@@ -129,6 +136,26 @@ export function MealPlanPreview({ mealPlan }: { mealPlan: MealPlan | null }) {
           {formatEuro(totalCost)}
         </span>
       </div>
+
+      {reconciliation && reconciliation.planned_items > 0 && (
+        <div
+          className="rounded-[var(--radius-sm)] p-3"
+          style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}
+        >
+          <div className="flex items-center justify-between">
+            <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-body)' }}>
+              Plan adherence this week
+            </span>
+            <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: reconciliation.adherence_pct >= 60 ? 'var(--good)' : 'var(--accent)' }}>
+              {reconciliation.adherence_pct}%
+            </span>
+          </div>
+          <p style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)', marginTop: 6, lineHeight: 1.45 }}>
+            {reconciliation.matched_items} of {reconciliation.planned_items} planned ingredients were bought.
+            {' '}Impulse spend: <strong>{formatEuro(reconciliation.impulse_spend)}</strong>.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
