@@ -1,10 +1,26 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { ParsedItem } from './parser'
-import type { MealPlanData, AhDeal } from './db'
+import type { MealPlanData, AhDeal, Meal, MealIngredient, ShoppingListItem } from './db'
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!)
 const MODEL = 'gemini-2.5-flash-lite'
 const WEEK_DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const
+const ALLOWED_CUISINES = ['Indian', 'European', 'Mixed'] as const
+const ALLOWED_CATEGORIES = [
+  'Vlees & Vis',
+  'Zuivel & Eieren',
+  'Groente & Fruit',
+  'Brood & Bakkerij',
+  'Pasta, Rijst & Granen',
+  'Sauzen & Kruiden',
+  'Maaltijden kant-en-klaar',
+  'Snacks & Zoetwaren',
+  'Dranken',
+  'Bier & Wijn',
+  'Huishoud',
+  'Persoonlijke verzorging',
+  'Overig non-food',
+] as const
 
 // ─── Helper — ask Gemini, return text ──────────────────────────
 async function ask(prompt: string, useSearch = false): Promise<string> {
@@ -25,6 +41,60 @@ function parseJSON<T>(text: string, fallback: T): T {
   } catch {
     return fallback
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function asNonEmptyString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function asBoolean(value: unknown, fallback = false): boolean {
+  return typeof value === 'boolean' ? value : fallback
+}
+
+function asNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return null
+}
+
+function clampCurrency(value: unknown): number | null {
+  const amount = asNumber(value)
+  return amount === null ? null : Math.max(0, Math.round(amount * 100) / 100)
+}
+
+function asCategory(value: unknown): string | null {
+  const category = asNonEmptyString(value)
+  if (!category) return null
+  return ALLOWED_CATEGORIES.includes(category as typeof ALLOWED_CATEGORIES[number]) ? category : null
+}
+
+function asCuisine(value: unknown): Meal['cuisine'] | null {
+  const cuisine = asNonEmptyString(value)
+  if (!cuisine) return null
+  return ALLOWED_CUISINES.includes(cuisine as typeof ALLOWED_CUISINES[number])
+    ? cuisine as Meal['cuisine']
+    : null
+}
+
+function asDay(value: unknown): Meal['day'] | null {
+  const day = asNonEmptyString(value)
+  if (!day) return null
+  return WEEK_DAYS.includes(day as typeof WEEK_DAYS[number]) ? day as Meal['day'] : null
+}
+
+function asStringArray(value: unknown, maxItems: number): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map(asNonEmptyString)
+    .filter((item): item is string => Boolean(item))
+    .slice(0, maxItems)
 }
 
 function clampMealCount(count: number): number {
@@ -82,6 +152,228 @@ Respond with ONLY valid JSON:
   return parseJSON<MealPlanData>(text, { lunches: [], dinners: [] })
 }
 
+function sanitizeMealIngredient(value: unknown): MealIngredient | null {
+  if (!isRecord(value)) return null
+
+  const ahName = asNonEmptyString(value.ah_name)
+  const englishName = asNonEmptyString(value.english_name)
+  const quantity = asNonEmptyString(value.quantity)
+  const estPrice = clampCurrency(value.est_price)
+  const category = asCategory(value.category)
+
+  if (!ahName || !englishName || !quantity || estPrice === null || !category) return null
+
+  return {
+    ah_name: ahName,
+    english_name: englishName,
+    quantity,
+    est_price: estPrice,
+    bonus_deal: asBoolean(value.bonus_deal),
+    category,
+  }
+}
+
+function sanitizeMeal(value: unknown): Meal | null {
+  if (!isRecord(value)) return null
+
+  const day = asDay(value.day)
+  const name = asNonEmptyString(value.name)
+  const cuisine = asCuisine(value.cuisine)
+  const prepTime = asNumber(value.prep_time_min)
+  const estimatedCost = clampCurrency(value.estimated_cost)
+  const ingredients = Array.isArray(value.ingredients)
+    ? value.ingredients.map(sanitizeMealIngredient).filter((item): item is MealIngredient => Boolean(item))
+    : []
+  const recipeSteps = asStringArray(value.recipe_steps, 6)
+  const tip = asNonEmptyString(value.tip) ?? undefined
+
+  if (!day || !name || !cuisine || prepTime === null || estimatedCost === null) return null
+  if (ingredients.length === 0 || recipeSteps.length === 0) return null
+
+  return {
+    day,
+    name,
+    cuisine,
+    prep_time_min: Math.max(1, Math.min(180, Math.round(prepTime))),
+    meal_prep_friendly: asBoolean(value.meal_prep_friendly),
+    ingredients,
+    recipe_steps: recipeSteps,
+    estimated_cost: estimatedCost,
+    tip,
+  }
+}
+
+function sanitizeMealPlanPayload(value: unknown): MealPlanData {
+  const payload = isRecord(value) ? value : {}
+
+  return {
+    lunches: Array.isArray(payload.lunches)
+      ? payload.lunches.map(sanitizeMeal).filter((meal): meal is Meal => Boolean(meal))
+      : [],
+    dinners: Array.isArray(payload.dinners)
+      ? payload.dinners.map(sanitizeMeal).filter((meal): meal is Meal => Boolean(meal))
+      : [],
+  }
+}
+
+function sanitizeCategorisedItems(
+  value: unknown,
+  filteredItems: ParsedItem[]
+): CategorisedItem[] {
+  if (!Array.isArray(value)) return []
+
+  const seenIndexes = new Set<number>()
+  const items: CategorisedItem[] = []
+
+  for (const entry of value) {
+    if (!isRecord(entry)) continue
+
+    const index = asNumber(entry.index)
+    if (index === null) continue
+    const normalizedIndex = Math.floor(index)
+    if (normalizedIndex < 0 || normalizedIndex >= filteredItems.length || seenIndexes.has(normalizedIndex)) continue
+
+    const cleanName = asNonEmptyString(entry.cleanName)
+    const category = asCategory(entry.category)
+    const btwRate = asNumber(entry.btwRate)
+    if (!cleanName || !category || (btwRate !== 9 && btwRate !== 21)) continue
+
+    seenIndexes.add(normalizedIndex)
+    items.push({
+      rawName: filteredItems[normalizedIndex].rawName,
+      cleanName,
+      category,
+      subcategory: asNonEmptyString(entry.subcategory) ?? undefined,
+      isNonFood: asBoolean(entry.isNonFood),
+      btwRate: btwRate as 9 | 21,
+    })
+  }
+
+  return items
+}
+
+function sanitizeShoppingList(value: unknown): ShoppingListItem[] {
+  if (!Array.isArray(value)) return []
+
+  const sections: ShoppingListItem[] = []
+  for (const entry of value) {
+    if (!isRecord(entry)) continue
+
+    const category = asNonEmptyString(entry.category)
+    if (!category || !Array.isArray(entry.items)) continue
+
+    const items = entry.items
+      .map((item) => {
+        if (!isRecord(item)) return null
+        const ahName = asNonEmptyString(item.ah_name)
+        const englishName = asNonEmptyString(item.english_name)
+        const quantity = asNonEmptyString(item.quantity)
+        const estPrice = clampCurrency(item.est_price)
+
+        if (!ahName || !englishName || !quantity || estPrice === null) return null
+
+        return {
+          ah_name: ahName,
+          english_name: englishName,
+          quantity,
+          est_price: estPrice,
+          bonus_deal: asBoolean(item.bonus_deal),
+        }
+      })
+      .filter((item): item is ShoppingListItem['items'][number] => Boolean(item))
+
+    if (items.length === 0) continue
+    sections.push({ category, items })
+  }
+
+  return sections
+}
+
+function sanitizeDeals(value: unknown, validUntil: string): AhDeal[] {
+  if (!Array.isArray(value)) return []
+
+  const seen = new Set<string>()
+  const deals: AhDeal[] = []
+  for (const entry of value) {
+    if (!isRecord(entry)) continue
+
+    const name = asNonEmptyString(entry.name)
+    const discount = asNonEmptyString(entry.discount)
+    if (!name || !discount) continue
+
+    const key = `${name}::${discount}`
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    deals.push({
+      name,
+      discount,
+      original_price: clampCurrency(entry.original_price) ?? undefined,
+      deal_price: clampCurrency(entry.deal_price) ?? undefined,
+      valid_until: validUntil,
+      category: asNonEmptyString(entry.category) ?? undefined,
+    })
+  }
+
+  return deals
+}
+
+async function repairCategorisedItems(items: ParsedItem[]): Promise<CategorisedItem[]> {
+  const filteredItems = items.filter((item) => !item.isStatiegeld && !item.isKoopzegel)
+  const itemList = filteredItems.map((item, index) => `${index}: ${item.rawName}`).join('\n')
+  const prompt = `Repair this malformed Albert Heijn item categorisation JSON.
+
+Return ONLY a valid JSON array with one valid entry per item index when possible.
+- Use only indexes shown below.
+- Category must be one of:
+${ALLOWED_CATEGORIES.join('\n')}
+- btwRate must be 9 or 21.
+
+Items:
+${itemList}
+
+Respond with ONLY JSON:
+[{"index":0,"cleanName":"Dutch name (English translation)","category":"Groente & Fruit","subcategory":"...","isNonFood":false,"btwRate":9}]`
+
+  const repaired = parseJSON<unknown>(await ask(prompt), [])
+  return sanitizeCategorisedItems(repaired, filteredItems)
+}
+
+async function repairShoppingList(
+  allIngredients: MealIngredient[],
+  deals: AhDeal[]
+): Promise<ShoppingListItem[]> {
+  const prompt = `Repair this AH shopping list into valid JSON grouped by category.
+
+- Keep only valid items with ah_name, english_name, quantity, est_price, bonus_deal.
+- Remove empty sections.
+- Use a JSON array only.
+
+Current deals: ${deals.map((deal) => deal.name).join(', ')}
+Ingredients:
+${JSON.stringify(allIngredients)}
+
+Respond with ONLY JSON:
+[{"category":"Groente & Fruit","items":[{"ah_name":"Tomaten","english_name":"tomatoes","quantity":"500g","est_price":1.49,"bonus_deal":false}]}]`
+
+  return sanitizeShoppingList(parseJSON<unknown>(await ask(prompt), []))
+}
+
+async function repairDeals(validUntil: string): Promise<AhDeal[]> {
+  const prompt = `Search ah.nl/bonus and return ONLY valid JSON for current Albert Heijn Bonus deals in the Netherlands.
+
+Rules:
+- Return a JSON array only.
+- Each entry must include non-empty name and discount.
+- Set valid_until to "${validUntil}" for every deal.
+- Prefer real grocery deals and avoid duplicates.
+
+Respond with ONLY JSON:
+[{"name":"AH product name","discount":"50% korting","category":"Groente & Fruit","valid_until":"${validUntil}"}]`
+
+  return sanitizeDeals(parseJSON<unknown>(await ask(prompt, true), []), validUntil)
+}
+
 // ─── Category taxonomy ──────────────────────────────────────────
 const CATEGORIES = `
 FOOD categories (count toward €90 budget):
@@ -135,17 +427,12 @@ ${itemList}
 Respond with ONLY a valid JSON array, no markdown, no explanation:
 [{"index":0,"cleanName":"...","category":"...","subcategory":"...","isNonFood":false,"btwRate":9}]`
 
-  const text = await ask(prompt)
-  const parsed = parseJSON<Array<CategorisedItem & { index: number }>>(text, [])
+  let parsed = sanitizeCategorisedItems(parseJSON<unknown>(await ask(prompt), []), filteredItems)
+  if (parsed.length === 0 && filteredItems.length > 0) {
+    parsed = await repairCategorisedItems(items)
+  }
 
-  return parsed.map(p => ({
-    rawName: filteredItems[p.index]?.rawName ?? '',
-    cleanName: p.cleanName,
-    category: p.category,
-    subcategory: p.subcategory,
-    isNonFood: p.isNonFood,
-    btwRate: p.btwRate,
-  }))
+  return parsed
 }
 
 // ─── AI Analysis ────────────────────────────────────────────────
@@ -238,14 +525,14 @@ Respond with ONLY valid JSON, no markdown:
 
   const text = await ask(prompt)
   let mealPlan = normalizeMealPlan(
-    parseJSON<MealPlanData>(text, { lunches: [], dinners: [] }),
+    sanitizeMealPlanPayload(parseJSON<unknown>(text, { lunches: [], dinners: [] })),
     lunchCount,
     dinnerCount
   )
 
   if (!hasExactMealCounts(mealPlan, lunchCount, dinnerCount)) {
     mealPlan = normalizeMealPlan(
-      await repairMealPlanCounts(mealPlan, lunchCount, dinnerCount, options.budget),
+      sanitizeMealPlanPayload(await repairMealPlanCounts(mealPlan, lunchCount, dinnerCount, options.budget)),
       lunchCount,
       dinnerCount
     )
@@ -282,8 +569,16 @@ Respond with ONLY valid JSON array, no markdown:
   "items": [{"ah_name":"Tomaten (tomatoes)","english_name":"tomatoes","quantity":"500g","est_price":1.49,"bonus_deal":false}]
 }]`
 
-  const text = await ask(prompt)
-  return parseJSON<unknown[]>(text, [])
+  let shoppingList = sanitizeShoppingList(parseJSON<unknown>(await ask(prompt), []))
+  if (shoppingList.length === 0) {
+    shoppingList = await repairShoppingList(allIngredients, deals)
+  }
+
+  if (shoppingList.length === 0) {
+    throw new Error('Shopping list generation returned no valid items')
+  }
+
+  return shoppingList
 }
 
 // ─── AH Deals — uses Gemini Google Search grounding ─────────────
@@ -307,8 +602,14 @@ Return a JSON array of 20 real current deals. Each item:
 IMPORTANT: Use "${validUntil}" as valid_until for ALL deals. Do NOT invent past dates.
 Respond with ONLY a valid JSON array, no markdown.`
 
-  const text = await ask(prompt, true)
-  const deals = parseJSON<AhDeal[]>(text, [])
+  let deals = sanitizeDeals(parseJSON<unknown>(await ask(prompt, true), []), validUntil)
+  if (deals.length < 5) {
+    deals = await repairDeals(validUntil)
+  }
+
+  if (deals.length === 0) {
+    throw new Error('Deals fetch returned no valid deals')
+  }
 
   // Force correct valid_until on every deal regardless of what Gemini returned
   return deals.map(d => ({ ...d, valid_until: validUntil }))
