@@ -21,14 +21,13 @@ from dotenv import load_dotenv
 
 # ── Config ─────────────────────────────────────────────────────
 
-# Load from .env.local if present
-load_dotenv(Path(__file__).parent.parent / ".env.local")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# Receipts folder on your Mac
-RECEIPTS_DIR = Path(
-    os.getenv("RECEIPTS_DIR",
-    "/Users/avi/Downloads/Claude/Hermes/AH Shopping Tracker/Receipts")
-)
+# Load from .env.local if present
+load_dotenv(PROJECT_ROOT / ".env.local")
+
+# Receipts folder, defaulting to a local Receipts directory in the repo
+RECEIPTS_DIR = Path(os.getenv("RECEIPTS_DIR", str(PROJECT_ROOT / "Receipts")))
 
 # Your deployed Vercel URL (or localhost:3000 for local testing)
 APP_URL = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
@@ -192,7 +191,7 @@ Next steps:
   3. Refresh the Dashboard to see your data
 
 Note: Parsing runs in the background via the API.
-      Each receipt requires a Claude API call for categorisation.
+      Each receipt requires a Gemini API call for categorisation.
 """)
 
 if __name__ == "__main__":

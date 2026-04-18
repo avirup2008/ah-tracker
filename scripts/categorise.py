@@ -4,11 +4,13 @@ Categorise receipt items using Gemini — batched to stay within 20 RPD free tie
 Sends up to 10 receipts worth of items per API call = ~11 calls for 109 receipts.
 """
 import os, time, json, re, psycopg2
+from pathlib import Path
 from google import genai
 
 # ── Load env ──────────────────────────────────────────────────
+project_root = Path(__file__).resolve().parent.parent
 env = {}
-for line in open('/Users/avi/Downloads/Claude/Projects/Projects/ah-tracker/.env.local'):
+for line in open(project_root / '.env.local'):
     line = line.strip()
     if line and not line.startswith('#') and '=' in line:
         k, v = line.split('=', 1)
