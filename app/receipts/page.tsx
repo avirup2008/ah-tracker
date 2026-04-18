@@ -14,11 +14,23 @@ interface Receipt {
   store_id: string
   parsed: boolean
   parse_error: string | null
+  reviewed_at?: string | null
   total_paid?: number
   payment_method?: string | null
   subtotal?: number
   koopzegels?: number
   statiegeld?: number
+}
+
+interface ReviewAssessment {
+  score: number
+  priority: 'high' | 'medium' | 'low' | 'none'
+  needs_review: boolean
+  reasons: string[]
+}
+
+interface ReviewQueueItem extends Receipt {
+  review: ReviewAssessment
 }
 
 interface Summary {
@@ -81,6 +93,7 @@ export default function ReceiptsPage() {
   const [detailLoading, setDetailLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editorMsg, setEditorMsg] = useState<string | null>(null)
+  const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([])
 
   const fetchReceipts = useCallback(async () => {
     setLoading(true)
@@ -88,7 +101,10 @@ export default function ReceiptsPage() {
       const res = await fetch('/api/receipts?limit=200')
       const data = await res.json()
       const all: Receipt[] = data.receipts ?? []
+      const reviewRes = await fetch('/api/receipts/review-queue')
+      const reviewData = await reviewRes.json()
       setReceipts(all)
+      setReviewQueue(reviewData.queue ?? [])
       setTotal(data.total ?? 0)
 
       const parsed = all.filter((receipt) => receipt.parsed)
@@ -406,6 +422,39 @@ export default function ReceiptsPage() {
             </button>
             {parseMsg && <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-body)', marginTop: 10, textAlign: 'center' }}>{parseMsg}</p>}
           </div>
+
+          <div className="card p-5">
+            <div className="card-label">Review Queue</div>
+            <p style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginBottom: 14 }}>
+              Prioritized receipts with parse failures, low-confidence fields, or missing item metadata.
+            </p>
+            {reviewQueue.length === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--good)', fontFamily: 'var(--font-body)' }}>No receipts currently need review.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {reviewQueue.slice(0, 6).map((receipt) => (
+                  <button
+                    key={receipt.id}
+                    className="btn-ghost"
+                    style={{ justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', textAlign: 'left', padding: '10px 12px' }}
+                    onClick={() => fetchDetail(receipt.id)}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                      <span style={{ fontSize: 12, color: 'var(--text)', fontFamily: 'var(--font-body)', fontWeight: 600 }}>
+                        {formatDate(receipt.receipt_date, 'd MMM')} · {receipt.store_name ?? 'Unknown store'}
+                      </span>
+                      <span style={{ fontSize: 10.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)', lineHeight: 1.45 }}>
+                        {receipt.review.reasons.slice(0, 2).join(' · ')}
+                      </span>
+                    </div>
+                    <span className={`badge ${receipt.review.priority === 'high' ? 'badge-warn' : receipt.review.priority === 'medium' ? 'badge-neutral' : 'badge-good'}`}>
+                      {receipt.review.priority}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="card p-5" style={{ minHeight: 420 }}>
@@ -434,10 +483,31 @@ export default function ReceiptsPage() {
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-body)' }}>
                   {detail.receipt.filename}
                 </div>
-                <div style={{ fontSize: 10.5, color: 'var(--text-4)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>
-                  ID {detail.receipt.id}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: 10.5, color: 'var(--text-4)', fontFamily: 'var(--font-mono)' }}>
+                    ID {detail.receipt.id}
+                  </div>
+                  {detail.receipt.reviewed_at && (
+                    <span className="badge badge-good">Reviewed</span>
+                  )}
                 </div>
               </div>
+
+              {reviewQueue.find((item) => item.id === detail.receipt.id)?.review && (
+                <div className="rounded-[var(--radius-sm)] border p-3" style={{ background: 'var(--surface2)', borderColor: 'var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                    <div className="card-label" style={{ marginBottom: 0 }}>Needs Review</div>
+                    <span className={`badge ${reviewQueue.find((item) => item.id === detail.receipt.id)?.review.priority === 'high' ? 'badge-warn' : 'badge-neutral'}`}>
+                      score {reviewQueue.find((item) => item.id === detail.receipt.id)?.review.score}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                    {reviewQueue.find((item) => item.id === detail.receipt.id)?.review.reasons.map((reason) => (
+                      <span key={reason} className="badge badge-neutral">{reason}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Receipt date">

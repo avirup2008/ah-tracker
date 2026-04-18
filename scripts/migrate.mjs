@@ -71,10 +71,13 @@ const tables = [
     payment_method      TEXT,
     parsed              BOOLEAN       DEFAULT false,
     parse_error         TEXT,
+    reviewed_at         TIMESTAMPTZ,
     raw_text            TEXT,
     created_at          TIMESTAMPTZ   DEFAULT NOW(),
     updated_at          TIMESTAMPTZ   DEFAULT NOW()
   )`,
+
+  `ALTER TABLE receipts ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ`,
 
   `CREATE TABLE IF NOT EXISTS receipt_items (
     id              SERIAL PRIMARY KEY,

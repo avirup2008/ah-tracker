@@ -235,6 +235,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         payment_method = ${parseOptionalString(body.payment_method)},
         parsed = true,
         parse_error = null,
+        reviewed_at = NOW(),
         updated_at = NOW()
       WHERE id = ${receiptId}
     `

@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
             raw_text          = ${rawText},
             parsed            = true,
             parse_error       = null,
+            reviewed_at       = null,
             updated_at        = NOW()
           WHERE id = ${receiptId}
         `

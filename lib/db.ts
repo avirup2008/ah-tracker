@@ -27,6 +27,7 @@ export interface Receipt {
   payment_method: string | null
   parsed: boolean
   parse_error: string | null
+  reviewed_at?: string | null
   created_at: string
   // joined
   store_name?: string
