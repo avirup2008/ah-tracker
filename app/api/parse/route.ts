@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
 import { parseReceiptText } from '@/lib/parser'
 import { categoriseItems } from '@/lib/ai'
+import { buildNormalizedItemFields } from '@/lib/normalization'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -89,24 +90,27 @@ export async function POST(req: NextRequest) {
 
           for (const item of parsed.items) {
             const cat = categorised.find(c => c.rawName === item.rawName)
+            const normalized = buildNormalizedItemFields(item.rawName, cat?.cleanName)
 
             await sql`
               INSERT INTO receipt_items (
-                receipt_id, quantity, raw_name, clean_name,
+                receipt_id, quantity, raw_name, clean_name, normalized_name,
                 category, subcategory,
                 unit_price, total_price,
-                is_bonus_item, is_statiegeld, is_koopzegel,
+                is_bonus_item, is_own_brand, is_statiegeld, is_koopzegel,
                 is_non_food, btw_rate
               ) VALUES (
                 ${receiptId},
                 ${item.quantity},
                 ${item.rawName},
                 ${cat?.cleanName ?? null},
+                ${normalized.normalizedName},
                 ${cat?.category ?? null},
                 ${cat?.subcategory ?? null},
                 ${item.unitPrice},
                 ${item.totalPrice},
                 ${item.isBonusItem},
+                ${normalized.isOwnBrand},
                 ${item.isStatiegeld},
                 ${item.isKoopzegel},
                 ${cat?.isNonFood ?? false},

@@ -61,11 +61,13 @@ CREATE TABLE IF NOT EXISTS receipt_items (
   quantity        NUMERIC(6,2)  NOT NULL DEFAULT 1,
   raw_name        TEXT          NOT NULL,
   clean_name      TEXT,
+  normalized_name TEXT,
   category        TEXT,
   subcategory     TEXT,
   unit_price      NUMERIC(8,2),
   total_price     NUMERIC(8,2)  NOT NULL,
   is_bonus_item   BOOLEAN       DEFAULT false,
+  is_own_brand    BOOLEAN       DEFAULT false,
   is_statiegeld   BOOLEAN       DEFAULT false,
   is_koopzegel    BOOLEAN       DEFAULT false,
   is_non_food     BOOLEAN       DEFAULT false,
@@ -76,6 +78,8 @@ CREATE TABLE IF NOT EXISTS receipt_items (
 CREATE INDEX IF NOT EXISTS items_receipt_idx   ON receipt_items(receipt_id);
 CREATE INDEX IF NOT EXISTS items_category_idx  ON receipt_items(category);
 CREATE INDEX IF NOT EXISTS items_name_idx      ON receipt_items(clean_name);
+CREATE INDEX IF NOT EXISTS items_normalized_name_idx ON receipt_items(normalized_name);
+CREATE INDEX IF NOT EXISTS items_own_brand_idx ON receipt_items(is_own_brand);
 CREATE INDEX IF NOT EXISTS items_date_idx      ON receipt_items(receipt_id, is_koopzegel, is_statiegeld);
 
 -- ─── Meal Plans ──────────────────────────────────────────────────

@@ -38,11 +38,13 @@ export interface ReceiptItem {
   quantity: number
   raw_name: string
   clean_name: string | null
+  normalized_name: string | null
   category: string | null
   subcategory: string | null
   unit_price: number | null
   total_price: number
   is_bonus_item: boolean
+  is_own_brand: boolean
   is_statiegeld: boolean
   is_koopzegel: boolean
   is_non_food: boolean

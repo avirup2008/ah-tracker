@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
-    "db:migrate": "node scripts/migrate.mjs"
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:backfill-normalized-items": "node --experimental-strip-types scripts/backfill-normalized-items.mts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",

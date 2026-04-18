@@ -18,6 +18,8 @@ function plain(rows: any[]): any[] {
   ))
 }
 
+const ITEM_NAME_SQL = sql`COALESCE(ri.normalized_name, ri.clean_name, ri.raw_name)`
+
 async function getDashboardData() {
   const now = new Date()
   const yr  = now.getFullYear()
@@ -80,7 +82,7 @@ async function getDashboardData() {
       sql`
         WITH purchase_counts AS (
           SELECT
-            COALESCE(ri.clean_name, ri.raw_name) AS item_name,
+            ${ITEM_NAME_SQL} AS item_name,
             COUNT(DISTINCT ri.receipt_id) AS purchase_count
           FROM receipt_items ri
           JOIN receipts r ON ri.receipt_id = r.id
@@ -89,26 +91,26 @@ async function getDashboardData() {
             AND ri.raw_name NOT IN ('SUBTOTAAL', 'KOOPZEGELS')
             AND ri.is_statiegeld = false
             AND ri.is_koopzegel = false
-          GROUP BY COALESCE(ri.clean_name, ri.raw_name)
+          GROUP BY ${ITEM_NAME_SQL}
           HAVING COUNT(DISTINCT ri.receipt_id) >= 3
         ),
         item_prices AS (
           SELECT
-            COALESCE(ri.clean_name, ri.raw_name) AS item_name,
+            ${ITEM_NAME_SQL} AS item_name,
             ri.category,
             ri.unit_price,
             r.receipt_date,
             ROW_NUMBER() OVER (
-              PARTITION BY COALESCE(ri.clean_name, ri.raw_name)
+              PARTITION BY ${ITEM_NAME_SQL}
               ORDER BY r.receipt_date ASC
             ) AS rn_asc,
             ROW_NUMBER() OVER (
-              PARTITION BY COALESCE(ri.clean_name, ri.raw_name)
+              PARTITION BY ${ITEM_NAME_SQL}
               ORDER BY r.receipt_date DESC
             ) AS rn_desc
           FROM receipt_items ri
           JOIN receipts r ON ri.receipt_id = r.id
-          JOIN purchase_counts pc ON COALESCE(ri.clean_name, ri.raw_name) = pc.item_name
+          JOIN purchase_counts pc ON ${ITEM_NAME_SQL} = pc.item_name
           WHERE ri.unit_price IS NOT NULL
             AND r.parsed = true
             AND ri.raw_name NOT IN ('SUBTOTAAL', 'KOOPZEGELS')

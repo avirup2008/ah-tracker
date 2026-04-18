@@ -11,6 +11,9 @@ function plain(v: any): any {
   ))
 }
 
+const ITEM_NAME_SQL = sql`COALESCE(ri.normalized_name, ri.clean_name, ri.raw_name)`
+const IS_OWN_BRAND_SQL = sql`(COALESCE(ri.is_own_brand, false) OR ri.raw_name LIKE 'AH %' OR ri.raw_name LIKE 'ALBERT HEIJN %')`
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const feature = searchParams.get('feature') ?? 'all'
@@ -24,33 +27,33 @@ export async function GET(req: NextRequest) {
       const rows = await sql`
         WITH purchase_counts AS (
           SELECT
-            COALESCE(ri.clean_name, ri.raw_name) AS item_name,
+            ${ITEM_NAME_SQL} AS item_name,
             COUNT(DISTINCT ri.receipt_id)        AS purchase_count
           FROM receipt_items ri
           JOIN receipts r ON ri.receipt_id = r.id
           WHERE ri.unit_price IS NOT NULL AND r.parsed = true
             AND ri.raw_name NOT IN ('SUBTOTAAL','KOOPZEGELS')
             AND ri.is_statiegeld = false AND ri.is_koopzegel = false
-          GROUP BY COALESCE(ri.clean_name, ri.raw_name)
+          GROUP BY ${ITEM_NAME_SQL}
           HAVING COUNT(DISTINCT ri.receipt_id) >= 3
         ),
         item_prices AS (
           SELECT
-            COALESCE(ri.clean_name, ri.raw_name) AS item_name,
+            ${ITEM_NAME_SQL} AS item_name,
             ri.category,
             ri.unit_price,
             r.receipt_date,
             ROW_NUMBER() OVER (
-              PARTITION BY COALESCE(ri.clean_name, ri.raw_name)
+              PARTITION BY ${ITEM_NAME_SQL}
               ORDER BY r.receipt_date ASC
             ) AS rn_asc,
             ROW_NUMBER() OVER (
-              PARTITION BY COALESCE(ri.clean_name, ri.raw_name)
+              PARTITION BY ${ITEM_NAME_SQL}
               ORDER BY r.receipt_date DESC
             ) AS rn_desc
           FROM receipt_items ri
           JOIN receipts r ON ri.receipt_id = r.id
-          JOIN purchase_counts pc ON COALESCE(ri.clean_name, ri.raw_name) = pc.item_name
+          JOIN purchase_counts pc ON ${ITEM_NAME_SQL} = pc.item_name
           WHERE ri.unit_price IS NOT NULL AND r.parsed = true
             AND ri.raw_name NOT IN ('SUBTOTAAL','KOOPZEGELS')
             AND ri.is_statiegeld = false AND ri.is_koopzegel = false
@@ -81,12 +84,12 @@ export async function GET(req: NextRequest) {
       const rows = await sql`
         SELECT
           ri.category,
-          ROUND(SUM(CASE WHEN ri.raw_name LIKE 'AH %'
+          ROUND(SUM(CASE WHEN ${IS_OWN_BRAND_SQL}
             THEN ri.total_price ELSE 0 END)::numeric, 2)          AS own_brand_spend,
-          ROUND(SUM(CASE WHEN ri.raw_name NOT LIKE 'AH %'
+          ROUND(SUM(CASE WHEN NOT ${IS_OWN_BRAND_SQL}
             THEN ri.total_price ELSE 0 END)::numeric, 2)          AS abrand_spend,
-          COUNT(CASE WHEN ri.raw_name LIKE 'AH %' THEN 1 END)     AS own_brand_count,
-          COUNT(CASE WHEN ri.raw_name NOT LIKE 'AH %' THEN 1 END) AS abrand_count
+          COUNT(CASE WHEN ${IS_OWN_BRAND_SQL} THEN 1 END)         AS own_brand_count,
+          COUNT(CASE WHEN NOT ${IS_OWN_BRAND_SQL} THEN 1 END)     AS abrand_count
         FROM receipt_items ri
         JOIN receipts r ON ri.receipt_id = r.id
         WHERE r.parsed = true
@@ -95,9 +98,9 @@ export async function GET(req: NextRequest) {
           AND ri.category IS NOT NULL
         GROUP BY ri.category
         HAVING
-          SUM(CASE WHEN ri.raw_name LIKE 'AH %' THEN ri.total_price ELSE 0 END) > 0
-          AND SUM(CASE WHEN ri.raw_name NOT LIKE 'AH %' THEN ri.total_price ELSE 0 END) > 0
-        ORDER BY SUM(CASE WHEN ri.raw_name NOT LIKE 'AH %' THEN ri.total_price ELSE 0 END) DESC
+          SUM(CASE WHEN ${IS_OWN_BRAND_SQL} THEN ri.total_price ELSE 0 END) > 0
+          AND SUM(CASE WHEN NOT ${IS_OWN_BRAND_SQL} THEN ri.total_price ELSE 0 END) > 0
+        ORDER BY SUM(CASE WHEN NOT ${IS_OWN_BRAND_SQL} THEN ri.total_price ELSE 0 END) DESC
         LIMIT 10
       `
       data.brandSwitch = plain(rows)
@@ -106,19 +109,19 @@ export async function GET(req: NextRequest) {
       const switchRows = await sql`
         SELECT
           ri.raw_name,
-          COALESCE(ri.clean_name, ri.raw_name) AS clean_name,
+          ${ITEM_NAME_SQL} AS clean_name,
           ri.category,
           COUNT(DISTINCT ri.receipt_id)             AS times,
           ROUND(AVG(ri.unit_price)::numeric, 2)     AS avg_price
         FROM receipt_items ri
         JOIN receipts r ON ri.receipt_id = r.id
-        WHERE ri.raw_name NOT LIKE 'AH %'
+        WHERE NOT ${IS_OWN_BRAND_SQL}
           AND ri.is_statiegeld = false AND ri.is_koopzegel = false
           AND ri.raw_name NOT IN ('SUBTOTAAL','KOOPZEGELS')
           AND ri.category IS NOT NULL
           AND ri.unit_price > 1
           AND r.parsed = true
-        GROUP BY ri.raw_name, COALESCE(ri.clean_name, ri.raw_name), ri.category
+        GROUP BY ri.raw_name, ${ITEM_NAME_SQL}, ri.category
         HAVING COUNT(DISTINCT ri.receipt_id) >= 3
         ORDER BY (COUNT(DISTINCT ri.receipt_id) * AVG(ri.unit_price)) DESC
         LIMIT 12
@@ -130,7 +133,7 @@ export async function GET(req: NextRequest) {
     if (feature === 'all' || feature === 'waste') {
       const rows = await sql`
         SELECT
-          COALESCE(ri.clean_name, ri.raw_name)                AS clean_name,
+          ${ITEM_NAME_SQL}                AS clean_name,
           ri.category,
           COUNT(DISTINCT ri.receipt_id)                       AS purchase_count,
           ROUND(SUM(ri.quantity * ri.unit_price)::numeric, 2) AS total_spent,
@@ -142,7 +145,7 @@ export async function GET(req: NextRequest) {
           AND ri.raw_name NOT IN ('SUBTOTAAL','KOOPZEGELS')
           AND ri.is_statiegeld = false AND ri.is_koopzegel = false
           AND ri.unit_price IS NOT NULL
-        GROUP BY COALESCE(ri.clean_name, ri.raw_name), ri.category
+        GROUP BY ${ITEM_NAME_SQL}, ri.category
         HAVING COUNT(DISTINCT ri.receipt_id) >= 4
         ORDER BY purchase_count DESC
         LIMIT 12
@@ -154,7 +157,7 @@ export async function GET(req: NextRequest) {
     if (feature === 'all' || feature === 'seasonality') {
       const rows = await sql`
         SELECT
-          COALESCE(ri.clean_name, ri.raw_name)  AS clean_name,
+          ${ITEM_NAME_SQL}  AS clean_name,
           ri.category,
           r.month,
           ROUND(AVG(ri.unit_price)::numeric, 2) AS avg_price,
@@ -164,8 +167,8 @@ export async function GET(req: NextRequest) {
         WHERE ri.unit_price IS NOT NULL AND r.parsed = true
           AND ri.raw_name NOT IN ('SUBTOTAAL','KOOPZEGELS')
           AND ri.is_statiegeld = false AND ri.is_koopzegel = false
-        GROUP BY COALESCE(ri.clean_name, ri.raw_name), ri.category, r.month
-        ORDER BY COALESCE(ri.clean_name, ri.raw_name), r.month
+        GROUP BY ${ITEM_NAME_SQL}, ri.category, r.month
+        ORDER BY ${ITEM_NAME_SQL}, r.month
       `
       data.seasonality = plain(rows)
     }
@@ -174,7 +177,7 @@ export async function GET(req: NextRequest) {
     if (feature === 'all' || feature === 'deals') {
       const rows = await sql`
         SELECT
-          COALESCE(ri.clean_name, ri.raw_name)   AS clean_name,
+          ${ITEM_NAME_SQL}   AS clean_name,
           ri.raw_name,
           ri.category,
           COUNT(*)                               AS bonus_purchases,
@@ -183,7 +186,7 @@ export async function GET(req: NextRequest) {
         FROM receipt_items ri
         JOIN receipts r ON ri.receipt_id = r.id
         WHERE ri.is_bonus_item = true AND r.parsed = true
-        GROUP BY COALESCE(ri.clean_name, ri.raw_name), ri.raw_name, ri.category
+        GROUP BY ${ITEM_NAME_SQL}, ri.raw_name, ri.category
         ORDER BY bonus_purchases DESC
         LIMIT 20
       `

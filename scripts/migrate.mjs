@@ -82,17 +82,22 @@ const tables = [
     quantity        NUMERIC(6,2)  NOT NULL DEFAULT 1,
     raw_name        TEXT          NOT NULL,
     clean_name      TEXT,
+    normalized_name TEXT,
     category        TEXT,
     subcategory     TEXT,
     unit_price      NUMERIC(8,2),
     total_price     NUMERIC(8,2)  NOT NULL,
     is_bonus_item   BOOLEAN       DEFAULT false,
+    is_own_brand    BOOLEAN       DEFAULT false,
     is_statiegeld   BOOLEAN       DEFAULT false,
     is_koopzegel    BOOLEAN       DEFAULT false,
     is_non_food     BOOLEAN       DEFAULT false,
     btw_rate        INTEGER,
     created_at      TIMESTAMPTZ   DEFAULT NOW()
   )`,
+
+  `ALTER TABLE receipt_items ADD COLUMN IF NOT EXISTS normalized_name TEXT`,
+  `ALTER TABLE receipt_items ADD COLUMN IF NOT EXISTS is_own_brand BOOLEAN DEFAULT false`,
 
   `CREATE TABLE IF NOT EXISTS meal_plans (
     id              SERIAL PRIMARY KEY,
@@ -118,6 +123,8 @@ const tables = [
   `CREATE INDEX IF NOT EXISTS receipts_week_idx   ON receipts(week_saturday)`,
   `CREATE INDEX IF NOT EXISTS items_receipt_idx   ON receipt_items(receipt_id)`,
   `CREATE INDEX IF NOT EXISTS items_category_idx  ON receipt_items(category)`,
+  `CREATE INDEX IF NOT EXISTS items_normalized_name_idx ON receipt_items(normalized_name)`,
+  `CREATE INDEX IF NOT EXISTS items_own_brand_idx ON receipt_items(is_own_brand)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS meal_plans_week_idx ON meal_plans(week_saturday)`,
 
   `CREATE OR REPLACE FUNCTION get_week_saturday(d DATE)

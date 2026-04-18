@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
 import { getWeekSaturday } from '@/lib/parser'
+import { buildNormalizedItemFields } from '@/lib/normalization'
 import { format } from 'date-fns'
 
 export const runtime = 'nodejs'
@@ -190,21 +191,24 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     await sql`DELETE FROM receipt_items WHERE receipt_id = ${receiptId}`
 
     for (const item of items) {
+      const normalized = buildNormalizedItemFields(item.raw_name ?? '', item.clean_name)
       await sql`
         INSERT INTO receipt_items (
-          receipt_id, quantity, raw_name, clean_name,
+          receipt_id, quantity, raw_name, clean_name, normalized_name,
           category, subcategory, unit_price, total_price,
-          is_bonus_item, is_statiegeld, is_koopzegel, is_non_food, btw_rate
+          is_bonus_item, is_own_brand, is_statiegeld, is_koopzegel, is_non_food, btw_rate
         ) VALUES (
           ${receiptId},
           ${item.quantity ?? 1},
           ${item.raw_name ?? ''},
           ${item.clean_name ?? null},
+          ${normalized.normalizedName},
           ${item.category ?? null},
           ${item.subcategory ?? null},
           ${item.unit_price ?? 0},
           ${item.total_price ?? 0},
           ${item.is_bonus_item ?? false},
+          ${normalized.isOwnBrand},
           ${item.is_statiegeld ?? false},
           ${item.is_koopzegel ?? false},
           ${item.is_non_food ?? false},
