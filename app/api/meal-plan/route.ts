@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
 import { generateMealPlan, buildShoppingList } from '@/lib/ai'
 import { fetchAhDeals } from '@/lib/ai'
+import { getProductIntelligence } from '@/lib/product-intelligence'
 import { format } from 'date-fns'
 import { getCurrentWeekSaturday } from '@/lib/utils'
 
@@ -65,11 +66,29 @@ export async function POST(req: NextRequest) {
       lunchCount?: number
       dinnerCount?: number
       regenerate?: boolean
+      servings?: number
+      maxPrepTime?: number
+      vegetarianDays?: number
+      pantryItems?: string
+      mealPrepPreference?: 'high' | 'balanced' | 'minimal'
+      cuisineMode?: 'mixed' | 'indian' | 'european'
     }
 
     const weekSaturday = body.weekSaturday ?? format(getCurrentWeekSaturday(), 'yyyy-MM-dd')
     const lunchCount = Math.max(0, Math.min(7, Math.floor(body.lunchCount ?? 7)))
     const dinnerCount = Math.max(0, Math.min(7, Math.floor(body.dinnerCount ?? 7)))
+    const servings = Math.max(1, Math.min(8, Math.floor(body.servings ?? 2)))
+    const maxPrepTime = Math.max(10, Math.min(90, Math.floor(body.maxPrepTime ?? 30)))
+    const vegetarianDays = Math.max(0, Math.min(dinnerCount, Math.floor(body.vegetarianDays ?? 0)))
+    const pantryItems = body.pantryItems
+      ?.split(',')
+      .map(item => item.trim())
+      .filter(Boolean) ?? []
+    const mealPrepPreference = body.mealPrepPreference ?? 'balanced'
+    const cuisineMode = body.cuisineMode ?? 'mixed'
+    const cuisinePreferences = cuisineMode === 'mixed'
+      ? ['Indian', 'European']
+      : [cuisineMode === 'indian' ? 'Indian' : 'European']
 
     // Don't regenerate if exists (unless forced)
     if (!body.regenerate) {
@@ -83,6 +102,7 @@ export async function POST(req: NextRequest) {
 
     // Get current deals
     const deals = await getCurrentDeals()
+    const stapleProducts = (await getProductIntelligence(10)).map(product => product.name)
 
     // Get last 2 weeks' plans to avoid repetition
     const prevPlans = await sql`
@@ -108,6 +128,13 @@ export async function POST(req: NextRequest) {
       currentDeals: deals,
       userMeals: body.userMeals,
       previousPlans,
+      servings,
+      maxPrepTime,
+      vegetarianDays,
+      pantryItems,
+      cuisinePreferences,
+      mealPrepPreference,
+      stapleProducts,
     })
 
     // Build shopping list

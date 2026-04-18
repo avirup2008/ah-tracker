@@ -6,6 +6,7 @@ import type { AhDeal } from '@/lib/db'
 
 interface DealsResponse {
   deals: AhDeal[]
+  recommendations: AhDeal[]
   fetched_at: string
   cached: boolean
 }
@@ -38,6 +39,7 @@ export default function DealsPage() {
   const filtered = deals.filter(d =>
     !search || d.name?.toLowerCase().includes(search.toLowerCase()) || d.category?.toLowerCase().includes(search.toLowerCase())
   )
+  const recommendations = data?.recommendations ?? []
 
   const categories = Array.from(new Set(deals.map(d => d.category).filter(Boolean)))
 
@@ -98,6 +100,43 @@ export default function DealsPage() {
         </div>
       ) : (
         <>
+          {recommendations.length > 0 && !search && (
+            <div className="card p-5">
+              <div className="card-label">Best Matches For You</div>
+              <p style={{ fontSize: 11.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)', marginTop: 4, lineHeight: 1.5 }}>
+                Ranked using your normalized purchase history and most frequent products.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                {recommendations.map((deal, i) => (
+                  <div key={`${deal.name}-${i}`} className="card p-4" style={{ background: 'var(--surface2)' }}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-body)' }}>{deal.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-4)', fontFamily: 'var(--font-body)', marginTop: 3 }}>
+                          Matches your purchase history: <strong>{deal.matched_product}</strong>
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: 9.5, padding: '3px 9px', borderRadius: 100, fontWeight: 700, flexShrink: 0,
+                        background: deal.recommendation === 'buy_now' ? 'var(--good-dim)' : 'var(--accent-dim)',
+                        color: deal.recommendation === 'buy_now' ? 'var(--good)' : 'var(--accent)',
+                        border: '1px solid var(--border)', fontFamily: 'var(--font-mono)',
+                      }}>
+                        {deal.recommendation === 'buy_now' ? 'BUY NOW' : 'GOOD IF NEEDED'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>{deal.discount}</span>
+                      <span style={{ fontSize: 10.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)' }}>
+                        {deal.match_type === 'exact' ? 'Exact match' : 'Related staple'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Search */}
           <input
             type="text"

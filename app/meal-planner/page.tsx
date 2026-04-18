@@ -6,6 +6,16 @@ import { getCurrentWeekSaturday, formatEuro, formatWeekRange } from '@/lib/utils
 import type { MealPlan, MealPlanData, Meal, ShoppingListItem } from '@/lib/db'
 
 type View = 'plan' | 'shopping'
+type MealPrepPreference = 'high' | 'balanced' | 'minimal'
+type CuisineMode = 'mixed' | 'indian' | 'european'
+
+interface ProductInsight {
+  name: string
+  category: string | null
+  purchase_count: number
+  total_spend: number
+  last_bought: string | null
+}
 
 const DAYS = ['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday','Friday']
 
@@ -17,10 +27,17 @@ export default function MealPlannerPage() {
   const [userMeals, setUserMeals]   = useState('')
   const [lunchCount, setLunchCount] = useState(7)
   const [dinnerCount, setDinnerCount] = useState(7)
+  const [servings, setServings] = useState(2)
+  const [maxPrepTime, setMaxPrepTime] = useState(30)
+  const [vegetarianDays, setVegetarianDays] = useState(1)
+  const [pantryItems, setPantryItems] = useState('')
+  const [mealPrepPreference, setMealPrepPreference] = useState<MealPrepPreference>('balanced')
+  const [cuisineMode, setCuisineMode] = useState<CuisineMode>('mixed')
   const [view, setView] = useState<View>('plan')
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null)
   const [mealType, setMealType] = useState<'lunch' | 'dinner'>('dinner')
   const [status, setStatus] = useState('')
+  const [products, setProducts] = useState<ProductInsight[]>([])
 
   useEffect(() => {
     fetch(`/api/meal-plan?week=${weekSat}`)
@@ -36,6 +53,17 @@ export default function MealPlannerPage() {
       .catch(() => setLoading(false))
   }, [weekSat])
 
+  useEffect(() => {
+    fetch('/api/product-intelligence?limit=8')
+      .then(r => r.json())
+      .then(data => setProducts(data.products ?? []))
+      .catch(() => setProducts([]))
+  }, [])
+
+  useEffect(() => {
+    setVegetarianDays((current) => Math.min(current, dinnerCount))
+  }, [dinnerCount])
+
   const generate = async (regenerate = false) => {
     setGenerating(true)
     setStatus('Generating your meal plan with AI...')
@@ -48,6 +76,12 @@ export default function MealPlannerPage() {
           userMeals: userMeals || undefined,
           lunchCount,
           dinnerCount,
+          servings,
+          maxPrepTime,
+          vegetarianDays,
+          pantryItems,
+          mealPrepPreference,
+          cuisineMode,
           regenerate,
         }),
       })
@@ -95,11 +129,54 @@ export default function MealPlannerPage() {
           <div className="card-label">Generate This Week&apos;s Plan</div>
           <p style={{ fontSize: 13, color: 'var(--text-2)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
             AI will create exactly the number of lunches and dinners you request using AH ingredients,
-            mixed Indian &amp; European cuisine, optimised for Sunday meal prep.
+            your pantry items, your frequent staples, and the structured constraints below.
           </p>
           <div className="grid grid-cols-2 gap-3">
             <CountInput label="Lunches" value={lunchCount} onChange={setLunchCount} />
             <CountInput label="Dinners" value={dinnerCount} onChange={setDinnerCount} />
+            <CountInput label="Servings" value={servings} onChange={setServings} max={8} />
+            <CountInput label="Veg Dinners" value={vegetarianDays} onChange={setVegetarianDays} max={dinnerCount} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <CountInput label="Max Prep Min" value={maxPrepTime} onChange={setMaxPrepTime} min={10} max={90} />
+            <SelectInput
+              label="Cuisine"
+              value={cuisineMode}
+              onChange={(value) => setCuisineMode(value as CuisineMode)}
+              options={[
+                { value: 'mixed', label: 'Mixed' },
+                { value: 'indian', label: 'Indian-leaning' },
+                { value: 'european', label: 'European-leaning' },
+              ]}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-3">
+            <SelectInput
+              label="Meal Prep"
+              value={mealPrepPreference}
+              onChange={(value) => setMealPrepPreference(value as MealPrepPreference)}
+              options={[
+                { value: 'balanced', label: 'Balanced' },
+                { value: 'high', label: 'Batch-cook heavy' },
+                { value: 'minimal', label: 'Fresh daily' },
+              ]}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
+              Pantry Items You Already Have
+            </label>
+            <input
+              type="text"
+              value={pantryItems}
+              onChange={e => setPantryItems(e.target.value)}
+              placeholder="e.g. rice, onions, olive oil, garam masala"
+              style={{
+                width: '100%', padding: '11px 12px', borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border)', background: 'var(--surface2)',
+                color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 13, outline: 'none',
+              }}
+            />
           </div>
           <div>
             <label style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
@@ -132,7 +209,7 @@ export default function MealPlannerPage() {
             </button>
             {!generating && (
               <p style={{ fontSize: 11.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)' }}>
-                Requesting {lunchCount} lunch{lunchCount !== 1 ? 'es' : ''} and {dinnerCount} dinner{dinnerCount !== 1 ? 's' : ''}.
+                Requesting {lunchCount} lunch{lunchCount !== 1 ? 'es' : ''}, {dinnerCount} dinner{dinnerCount !== 1 ? 's' : ''}, {servings} serving{servings !== 1 ? 's' : ''}, and max {maxPrepTime} min prep.
               </p>
             )}
             {status && <p style={{ fontSize: 12.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)' }}>{status}</p>}
@@ -243,6 +320,14 @@ export default function MealPlannerPage() {
                   <span className="mono" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>{meals.dinners?.length ?? 0}</span>
                 </div>
                 <div className="flex justify-between py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 12.5, color: 'var(--text-2)', fontFamily: 'var(--font-body)' }}>Servings target</span>
+                  <span className="mono" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>{servings}</span>
+                </div>
+                <div className="flex justify-between py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 12.5, color: 'var(--text-2)', fontFamily: 'var(--font-body)' }}>Max prep time</span>
+                  <span className="mono" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>{maxPrepTime} min</span>
+                </div>
+                <div className="flex justify-between py-2" style={{ borderBottom: '1px solid var(--border)' }}>
                   <span style={{ fontSize: 12.5, color: 'var(--text-2)', fontFamily: 'var(--font-body)' }}>Meal-prep friendly</span>
                   <span className="mono" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>
                     {[...(meals.lunches ?? []), ...(meals.dinners ?? [])].filter(m => m.meal_prep_friendly).length}
@@ -261,7 +346,41 @@ export default function MealPlannerPage() {
               <div className="grid grid-cols-2 gap-3">
                 <CountInput label="Lunches" value={lunchCount} onChange={setLunchCount} compact />
                 <CountInput label="Dinners" value={dinnerCount} onChange={setDinnerCount} compact />
+                <CountInput label="Servings" value={servings} onChange={setServings} max={8} compact />
+                <CountInput label="Veg Dinners" value={vegetarianDays} onChange={setVegetarianDays} max={dinnerCount} compact />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <CountInput label="Max Prep Min" value={maxPrepTime} onChange={setMaxPrepTime} min={10} max={90} compact />
+                <SelectInput
+                  label="Cuisine"
+                  value={cuisineMode}
+                  onChange={(value) => setCuisineMode(value as CuisineMode)}
+                  options={[
+                    { value: 'mixed', label: 'Mixed' },
+                    { value: 'indian', label: 'Indian' },
+                    { value: 'european', label: 'European' },
+                  ]}
+                  compact
+                />
+              </div>
+              <SelectInput
+                label="Meal Prep"
+                value={mealPrepPreference}
+                onChange={(value) => setMealPrepPreference(value as MealPrepPreference)}
+                options={[
+                  { value: 'balanced', label: 'Balanced' },
+                  { value: 'high', label: 'Batch-heavy' },
+                  { value: 'minimal', label: 'Fresh' },
+                ]}
+                compact
+              />
+              <input
+                type="text"
+                value={pantryItems}
+                onChange={e => setPantryItems(e.target.value)}
+                placeholder="Pantry items (comma-separated)"
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 12, outline: 'none' }}
+              />
               <textarea
                 value={userMeals}
                 onChange={e => setUserMeals(e.target.value)}
@@ -278,6 +397,28 @@ export default function MealPlannerPage() {
               </button>
               {status && <p style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)' }}>{status}</p>}
             </div>
+
+            {products.length > 0 && (
+              <div className="card p-5">
+                <div className="card-label">Your Frequent Staples</div>
+                <p style={{ fontSize: 11.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)', marginTop: 4, lineHeight: 1.5 }}>
+                  Meal generation now uses these as likely staples and reuse candidates.
+                </p>
+                <div className="flex flex-col gap-2 mt-3">
+                  {products.slice(0, 6).map((product) => (
+                    <div key={product.name} className="flex items-center justify-between py-1.5" style={{ borderBottom: '1px solid var(--border)' }}>
+                      <div>
+                        <div style={{ fontSize: 12.5, color: 'var(--text)', fontFamily: 'var(--font-body)' }}>{product.name}</div>
+                        <div style={{ fontSize: 10.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)' }}>
+                          {product.category ?? 'Uncategorised'} · {product.purchase_count} trips
+                        </div>
+                      </div>
+                      <span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-2)' }}>{formatEuro(product.total_spend)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -347,11 +488,15 @@ function CountInput({
   value,
   onChange,
   compact = false,
+  min = 0,
+  max = 7,
 }: {
   label: string
   value: number
   onChange: (value: number) => void
   compact?: boolean
+  min?: number
+  max?: number
 }) {
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -366,10 +511,10 @@ function CountInput({
       </span>
       <input
         type="number"
-        min={0}
-        max={7}
+        min={min}
+        max={max}
         value={value}
-        onChange={(e) => onChange(Math.max(0, Math.min(7, Number(e.target.value) || 0)))}
+        onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value) || min)))}
         style={{
           width: '100%',
           padding: compact ? '9px 10px' : '11px 12px',
@@ -382,6 +527,53 @@ function CountInput({
           outline: 'none',
         }}
       />
+    </label>
+  )
+}
+
+function SelectInput({
+  label,
+  value,
+  onChange,
+  options,
+  compact = false,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  options: { value: string; label: string }[]
+  compact?: boolean
+}) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span style={{
+        fontSize: compact ? 10 : 11,
+        color: 'var(--text-3)',
+        fontFamily: 'var(--font-mono)',
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+      }}>
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: '100%',
+          padding: compact ? '9px 10px' : '11px 12px',
+          borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--border)',
+          background: 'var(--surface2)',
+          color: 'var(--text)',
+          fontFamily: 'var(--font-body)',
+          fontSize: compact ? 12 : 13,
+          outline: 'none',
+        }}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
     </label>
   )
 }

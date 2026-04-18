@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import sql from '@/lib/db'
 import { fetchAhDeals } from '@/lib/ai'
+import { getProductIntelligence, recommendDealsForProducts } from '@/lib/product-intelligence'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -8,6 +9,8 @@ export const maxDuration = 30
 
 export async function GET() {
   try {
+    const products = await getProductIntelligence(20)
+
     // Check cache first (valid for 24 hours)
     const cached = await sql`
       SELECT deals_json, fetched_at FROM ah_deals_cache
@@ -17,8 +20,10 @@ export async function GET() {
     `
 
     if (cached.length > 0) {
+      const recommendations = recommendDealsForProducts(cached[0].deals_json, products)
       return NextResponse.json({
         deals: cached[0].deals_json,
+        recommendations,
         fetched_at: cached[0].fetched_at,
         cached: true,
       })
@@ -39,6 +44,7 @@ export async function GET() {
 
     return NextResponse.json({
       deals,
+      recommendations: recommendDealsForProducts(deals, products),
       fetched_at: new Date().toISOString(),
       cached: false,
     })

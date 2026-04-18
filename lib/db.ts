@@ -107,4 +107,8 @@ export interface AhDeal {
   deal_price?: number
   valid_until?: string
   category?: string
+  matched_product?: string
+  match_type?: 'exact' | 'partial'
+  recommendation?: 'buy_now' | 'good_if_needed'
+  score?: number
 }
