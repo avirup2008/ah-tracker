@@ -46,6 +46,7 @@ interface ParserState {
   totalPaid: number
   paymentMethod: string | null
   parsingItems: boolean
+  pendingItemLine: string | null
 }
 
 const AMOUNT_RE = /^-?\d+,\d{2}$/
@@ -160,6 +161,10 @@ function parseItemLine(line: string): ParsedItem | null {
   }
 }
 
+function startsPotentialItem(line: string): boolean {
+  return /^\d+\s+/.test(line)
+}
+
 function parseReceiptLines(lines: string[]): ParserState {
   const state: ParserState = {
     items: [],
@@ -169,6 +174,7 @@ function parseReceiptLines(lines: string[]): ParserState {
     totalPaid: 0,
     paymentMethod: null,
     parsingItems: false,
+    pendingItemLine: null,
   }
 
   for (let i = 0; i < lines.length; i++) {
@@ -176,11 +182,13 @@ function parseReceiptLines(lines: string[]): ParserState {
 
     if (line.includes('BONUSKAART')) {
       state.parsingItems = true
+      state.pendingItemLine = null
       continue
     }
 
     if (line.startsWith('SUBTOTAAL') || line.startsWith('UW VOORDEEL')) {
       state.parsingItems = false
+      state.pendingItemLine = null
     }
 
     const totalPaid = extractTotalPaid(line, lines[i + 1])
@@ -213,9 +221,20 @@ function parseReceiptLines(lines: string[]): ParserState {
 
     if (!state.parsingItems) continue
 
-    const item = parseItemLine(line)
+    let item = parseItemLine(line)
+    if (!item && state.pendingItemLine) {
+      item = parseItemLine(`${state.pendingItemLine} ${line}`)
+      if (item) state.pendingItemLine = null
+    }
+
+    if (!item && startsPotentialItem(line)) {
+      state.pendingItemLine = line
+      continue
+    }
+
     if (!item) continue
 
+    state.pendingItemLine = null
     if (item.isStatiegeld) state.statiegeld += item.totalPrice
     state.items.push(item)
   }

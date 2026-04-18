@@ -72,3 +72,16 @@ test('parseReceiptText rejects receipts without a valid total', () => {
   const rawText = readFixture('receipt-invalid-missing-total.txt')
   assert.equal(parseReceiptText(rawText, rawText), null)
 })
+
+test('parseReceiptText supports item names split across multiple lines', () => {
+  const rawText = readFixture('receipt-multiline-item.txt')
+  const parsed = parseReceiptText(rawText, rawText)
+
+  assert.ok(parsed)
+  assert.equal(parsed.itemCount, 2)
+  assert.equal(parsed.totalPaid, 6.08)
+  assert.equal(parsed.subtotal, 6.08)
+  assert.equal(parsed.items[0]?.rawName, 'AH PINDAKAAS STUKJES')
+  assert.equal(parsed.items[0]?.totalPrice, 3.29)
+  assert.equal(parsed.items[1]?.rawName, 'AH BROOD')
+})
