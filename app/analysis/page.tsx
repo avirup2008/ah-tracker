@@ -78,7 +78,7 @@ export default function AnalysisPage() {
   const anom   = data.anomaly   ?? {}
   const inflat = data.inflation ?? []
   const brand  = data.brandSwitch ?? []
-  const switchItems = data.switchItems ?? []
+  const substitutions = data.substitutions ?? []
   const waste  = data.waste ?? []
   const season = data.seasonality ?? []
   const fc     = data.forecast ?? {}
@@ -95,8 +95,8 @@ export default function AnalysisPage() {
   const topWasteItem   = waste[0]
   const totalAhSpend   = brand.reduce((s: number, r: { own_brand_spend: number }) => s + Number(r.own_brand_spend), 0)
   const totalAbrand    = brand.reduce((s: number, r: { abrand_spend: number }) => s + Number(r.abrand_spend), 0)
-  const switchPotential = switchItems.slice(0,5).reduce((s: number, item: { times: number; avg_price: number }) => {
-    return s + (Number(item.avg_price) * 0.25 * Number(item.times) * (52/16))
+  const switchPotential = substitutions.slice(0, 5).reduce((sum: number, item: { estimated_annual_saving: number }) => {
+    return sum + Number(item.estimated_annual_saving ?? 0)
   }, 0)
 
   return (
@@ -261,7 +261,7 @@ export default function AnalysisPage() {
         {brand.length > 0 && switchPotential > 0 && (
           <div className="so-what info" style={{ marginBottom:14 }}>
             You spend <strong>{formatEuro(totalAbrand)}</strong> on A-brands vs <strong>{formatEuro(totalAhSpend)}</strong> on AH own-brand.
-            Switching your top 5 repeat A-brand items to AH equivalents could save approximately <strong>{formatEuro(switchPotential)}/year</strong>.
+            Switching your top 5 repeat A-brand items to likely AH equivalents could save approximately <strong>{formatEuro(switchPotential)}/year</strong>.
           </div>
         )}
 
@@ -296,25 +296,36 @@ export default function AnalysisPage() {
 
           <div className="card p-5">
             <div className="card-label" style={{ marginBottom:12 }}>Switch recommendations</div>
-            {switchItems.length === 0 ? (
+            {substitutions.length === 0 ? (
               <EmptyState title="Switch table" desc="Shows specific A-brand items you buy regularly with an AH equivalent and estimated annual saving" />
             ) : (
               <div className="flex flex-col">
-                {switchItems.slice(0,8).map((item: { clean_name: string; raw_name: string; category: string; times: number; avg_price: number }, i: number) => {
-                  const ahPrice = Math.round(Number(item.avg_price)*0.75*100)/100
-                  const annualSaving = Math.round((Number(item.avg_price)-ahPrice)*(Number(item.times)*(52/16))*100)/100
+                {substitutions.slice(0,8).map((item: {
+                  source_name: string
+                  source_category: string
+                  source_avg_price: number
+                  source_purchase_count: number
+                  target_name: string
+                  target_avg_price: number
+                  estimated_saving_per_buy: number
+                  estimated_annual_saving: number
+                  confidence: 'high' | 'medium'
+                }, i: number) => {
                   return (
                     <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0', borderBottom:`1px solid ${grid}` }}>
                       <div>
                         <div style={{ fontSize:12.5, fontWeight:500, color:'var(--text)', fontFamily:'var(--font-body)' }}>
-                          {item.clean_name ?? item.raw_name}
+                          {item.source_name}
                         </div>
                         <div style={{ fontSize:10, color:'var(--text-4)', marginTop:1 }}>
-                          {catLabel(item.category)} · {item.times}× avg {formatEuro(Number(item.avg_price))}
-                          <span style={{ color:'var(--text-3)' }}> → AH: ~{formatEuro(ahPrice)}</span>
+                          {catLabel(item.source_category)} · {item.source_purchase_count}× avg {formatEuro(Number(item.source_avg_price))}
+                          <span style={{ color:'var(--text-3)' }}> → {item.target_name}: {formatEuro(Number(item.target_avg_price))}</span>
+                        </div>
+                        <div style={{ fontSize:10, color:'var(--text-4)', marginTop:3 }}>
+                          Save about {formatEuro(Number(item.estimated_saving_per_buy))} per buy · {item.confidence} confidence
                         </div>
                       </div>
-                      <span className="badge badge-good">~{formatEuro(annualSaving)}/yr</span>
+                      <span className="badge badge-good">~{formatEuro(Number(item.estimated_annual_saving))}/yr</span>
                     </div>
                   )
                 })}

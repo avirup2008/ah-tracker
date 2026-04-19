@@ -22,6 +22,21 @@ export interface DealRecommendation extends AhDeal {
   score: number
 }
 
+export interface ProductSubstitution {
+  source_name: string
+  source_category: string | null
+  source_avg_price: number
+  source_purchase_count: number
+  target_name: string
+  target_category: string | null
+  target_avg_price: number
+  target_purchase_count: number
+  estimated_saving_per_buy: number
+  estimated_annual_saving: number
+  confidence: 'high' | 'medium'
+  score: number
+}
+
 function toNumber(value: unknown): number | null {
   if (value == null) return null
   const parsed = Number(value)
@@ -33,6 +48,12 @@ function tokenize(value: string): string[] {
     .toLowerCase()
     .split(/[^a-z0-9]+/i)
     .filter((token) => token.length >= 3)
+}
+
+function baseProductKey(value: string): string {
+  const stopwords = new Set(['ah', 'albert', 'heijn'])
+  const tokens = tokenize(normalizeItemName(value)).filter((token) => !stopwords.has(token))
+  return tokens.slice(0, 4).join(' ')
 }
 
 export async function getProductIntelligence(limit = 12): Promise<ProductInsight[]> {
@@ -167,5 +188,68 @@ export function recommendDealsForProducts(deals: AhDeal[], products: ProductInsi
 
   return recommendations
     .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+}
+
+export async function buildSubstitutionRecommendations(limit = 12): Promise<ProductSubstitution[]> {
+  const products = await getProductIntelligence(250)
+  const ownBrand = products.filter((product) => product.is_own_brand && product.avg_unit_price !== null)
+  const aBrand = products.filter((product) => !product.is_own_brand && product.avg_unit_price !== null)
+
+  const substitutions: ProductSubstitution[] = []
+
+  for (const source of aBrand) {
+    const sourceKey = baseProductKey(source.name)
+    if (!sourceKey || source.avg_unit_price === null) continue
+
+    let best: ProductSubstitution | null = null
+
+    for (const target of ownBrand) {
+      if (target.avg_unit_price === null) continue
+      if (target.category !== source.category) continue
+
+      const targetKey = baseProductKey(target.name)
+      if (!targetKey) continue
+
+      const sourceTokens = sourceKey.split(' ').filter(Boolean)
+      const targetTokens = targetKey.split(' ').filter(Boolean)
+      const overlap = sourceTokens.filter((token) => targetTokens.includes(token))
+
+      if (overlap.length === 0) continue
+      if (target.avg_unit_price >= source.avg_unit_price) continue
+
+      const tokenCoverage = overlap.length / Math.max(sourceTokens.length, 1)
+      if (tokenCoverage < 0.5 && overlap.length < 2) continue
+
+      const savingPerBuy = Math.round((source.avg_unit_price - target.avg_unit_price) * 100) / 100
+      const annualizedTrips = source.purchase_count * (52 / 16)
+      const annualSaving = Math.round(savingPerBuy * annualizedTrips * 100) / 100
+      const score = Math.round((tokenCoverage * 100) + (source.purchase_count * 4) + Math.min(20, annualSaving))
+
+      const candidate: ProductSubstitution = {
+        source_name: source.name,
+        source_category: source.category,
+        source_avg_price: source.avg_unit_price,
+        source_purchase_count: source.purchase_count,
+        target_name: target.name,
+        target_category: target.category,
+        target_avg_price: target.avg_unit_price,
+        target_purchase_count: target.purchase_count,
+        estimated_saving_per_buy: savingPerBuy,
+        estimated_annual_saving: annualSaving,
+        confidence: tokenCoverage >= 0.8 ? 'high' : 'medium',
+        score,
+      }
+
+      if (!best || candidate.score > best.score) {
+        best = candidate
+      }
+    }
+
+    if (best) substitutions.push(best)
+  }
+
+  return substitutions
+    .sort((a, b) => b.estimated_annual_saving - a.estimated_annual_saving || b.score - a.score)
     .slice(0, limit)
 }
