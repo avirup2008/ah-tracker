@@ -131,6 +131,19 @@ const tables = [
     updated_at      TIMESTAMPTZ DEFAULT NOW()
   )`,
 
+  `CREATE TABLE IF NOT EXISTS planner_defaults (
+    id                    SERIAL PRIMARY KEY,
+    lunch_count           INTEGER     NOT NULL DEFAULT 7,
+    dinner_count          INTEGER     NOT NULL DEFAULT 7,
+    servings              INTEGER     NOT NULL DEFAULT 2,
+    max_prep_time         INTEGER     NOT NULL DEFAULT 30,
+    vegetarian_days       INTEGER     NOT NULL DEFAULT 1,
+    meal_prep_preference  TEXT        NOT NULL DEFAULT 'balanced',
+    cuisine_mode          TEXT        NOT NULL DEFAULT 'mixed',
+    created_at            TIMESTAMPTZ DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ DEFAULT NOW()
+  )`,
+
   `CREATE INDEX IF NOT EXISTS receipts_date_idx   ON receipts(receipt_date)`,
   `CREATE INDEX IF NOT EXISTS receipts_year_idx   ON receipts(year, month)`,
   `CREATE INDEX IF NOT EXISTS receipts_week_idx   ON receipts(week_saturday)`,

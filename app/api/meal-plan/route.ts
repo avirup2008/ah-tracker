@@ -1,66 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import sql from '@/lib/db'
-import { generateMealPlan, buildShoppingList } from '@/lib/ai'
-import { fetchAhDeals } from '@/lib/ai'
-import { getProductIntelligence } from '@/lib/product-intelligence'
 import { format } from 'date-fns'
 import { getCurrentWeekSaturday } from '@/lib/utils'
+import { generateAndStoreMealPlan, getMealPlanByWeek, savePlannerDefaults } from '@/lib/meal-plan-service'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
-
-async function getCurrentDeals() {
-  const dealsCache = await sql`
-    SELECT deals_json FROM ah_deals_cache
-    WHERE expires_at > NOW()
-    ORDER BY fetched_at DESC LIMIT 1
-  `
-
-  if (dealsCache.length > 0) {
-    return dealsCache[0].deals_json
-  }
-
-  const deals = await fetchAhDeals()
-  if (deals.length > 0) {
-    await sql`
-      INSERT INTO ah_deals_cache (deals_json, expires_at)
-      VALUES (
-        ${JSON.stringify(deals)}::jsonb,
-        NOW() + INTERVAL '24 hours'
-      )
-    `
-  }
-
-  return deals
-}
-
-async function getPantryItems() {
-  const rows = await sql`
-    SELECT name, quantity_note
-    FROM pantry_items
-    ORDER BY updated_at DESC, id DESC
-  `
-
-  return rows.map((row: Record<string, unknown>) =>
-    row.quantity_note ? `${row.name} (${row.quantity_note})` : String(row.name)
-  )
-}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const weekSaturday = searchParams.get('week') ?? format(getCurrentWeekSaturday(), 'yyyy-MM-dd')
 
   try {
-    const rows = await sql`
-      SELECT * FROM meal_plans
-      WHERE week_saturday = ${weekSaturday}
-      ORDER BY created_at DESC
-      LIMIT 1
-    `
-
-    if (rows.length > 0) {
-      return NextResponse.json(rows[0])
+    const row = await getMealPlanByWeek(weekSaturday)
+    if (row) {
+      return NextResponse.json(row)
     }
 
     return NextResponse.json(null)
@@ -88,90 +42,34 @@ export async function POST(req: NextRequest) {
     const weekSaturday = body.weekSaturday ?? format(getCurrentWeekSaturday(), 'yyyy-MM-dd')
     const lunchCount = Math.max(0, Math.min(7, Math.floor(body.lunchCount ?? 7)))
     const dinnerCount = Math.max(0, Math.min(7, Math.floor(body.dinnerCount ?? 7)))
-    const servings = Math.max(1, Math.min(8, Math.floor(body.servings ?? 2)))
-    const maxPrepTime = Math.max(10, Math.min(90, Math.floor(body.maxPrepTime ?? 30)))
-    const vegetarianDays = Math.max(0, Math.min(dinnerCount, Math.floor(body.vegetarianDays ?? 0)))
-    const mealPrepPreference = body.mealPrepPreference ?? 'balanced'
-    const cuisineMode = body.cuisineMode ?? 'mixed'
-    const cuisinePreferences = cuisineMode === 'mixed'
-      ? ['Indian', 'European']
-      : [cuisineMode === 'indian' ? 'Indian' : 'European']
+    const overrides = {
+      lunch_count: lunchCount,
+      dinner_count: dinnerCount,
+      servings: Math.max(1, Math.min(8, Math.floor(body.servings ?? 2))),
+      max_prep_time: Math.max(10, Math.min(90, Math.floor(body.maxPrepTime ?? 30))),
+      vegetarian_days: Math.max(0, Math.min(dinnerCount, Math.floor(body.vegetarianDays ?? 0))),
+      meal_prep_preference: body.mealPrepPreference ?? 'balanced',
+      cuisine_mode: body.cuisineMode ?? 'mixed',
+    } as const
 
-    // Don't regenerate if exists (unless forced)
-    if (!body.regenerate) {
-      const existing = await sql`
-        SELECT id FROM meal_plans WHERE week_saturday = ${weekSaturday}
-      `
-      if (existing.length > 0) {
-        return NextResponse.json({ message: 'Already exists', id: existing[0].id })
-      }
-    }
-
-    // Get current deals
-    const deals = await getCurrentDeals()
-    const stapleProducts = (await getProductIntelligence(10)).map(product => product.name)
-    const pantryItems = await getPantryItems()
-
-    // Get last 2 weeks' plans to avoid repetition
-    const prevPlans = await sql`
-      SELECT meals_json FROM meal_plans
-      ORDER BY week_saturday DESC LIMIT 2
-    `
-    const previousPlans = prevPlans.length > 0
-      ? prevPlans.map((p: Record<string, unknown>) => {
-          const meals = p.meals_json as { lunches?: { name: string }[], dinners?: { name: string }[] }
-          return [
-            ...(meals?.lunches?.map((m: { name: string }) => m.name) ?? []),
-            ...(meals?.dinners?.map((m: { name: string }) => m.name) ?? []),
-          ].join(', ')
-        }).join(' | ')
-      : undefined
-
-    // Generate meal plan
-    const mealPlan = await generateMealPlan({
-      weekStart: weekSaturday,
-      budget: 90,
-      lunchCount,
-      dinnerCount,
-      currentDeals: deals,
+    await savePlannerDefaults(overrides)
+    const result = await generateAndStoreMealPlan({
+      weekSaturday,
       userMeals: body.userMeals,
-      previousPlans,
-      servings,
-      maxPrepTime,
-      vegetarianDays,
-      pantryItems,
-      cuisinePreferences,
-      mealPrepPreference,
-      stapleProducts,
+      regenerate: body.regenerate,
+      overrides,
     })
 
-    // Build shopping list
-    const shoppingList = await buildShoppingList(mealPlan, deals)
-
-    // Calculate estimated cost
-    const allMeals = [...mealPlan.lunches, ...mealPlan.dinners]
-    const estimatedCost = allMeals.reduce((sum, meal) => sum + (meal.estimated_cost ?? 0), 0)
-
-    // Save to DB (upsert by week)
-    await sql`DELETE FROM meal_plans WHERE week_saturday = ${weekSaturday}`
-    const inserted = await sql`
-      INSERT INTO meal_plans (week_saturday, generated_by, meals_json, shopping_list, estimated_cost)
-      VALUES (
-        ${weekSaturday},
-        ${'ai'},
-        ${JSON.stringify(mealPlan)}::jsonb,
-        ${JSON.stringify(shoppingList)}::jsonb,
-        ${estimatedCost}
-      )
-      RETURNING id
-    `
+    if (result.existing) {
+      return NextResponse.json({ message: 'Already exists', id: result.mealPlan.id })
+    }
 
     return NextResponse.json({
-      id: inserted[0].id,
-      week_saturday: weekSaturday,
-      meals_json: mealPlan,
-      shopping_list: shoppingList,
-      estimated_cost: estimatedCost,
+      id: result.mealPlan.id,
+      week_saturday: result.mealPlan.week_saturday,
+      meals_json: result.mealPlan.meals_json,
+      shopping_list: result.mealPlan.shopping_list,
+      estimated_cost: result.mealPlan.estimated_cost,
     })
   } catch (err) {
     console.error('Meal plan generation error:', err)

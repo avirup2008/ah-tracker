@@ -23,6 +23,16 @@ interface PantryDraft {
   category: string
 }
 
+interface PlannerDefaultsPayload {
+  lunch_count: number
+  dinner_count: number
+  servings: number
+  max_prep_time: number
+  vegetarian_days: number
+  meal_prep_preference: MealPrepPreference
+  cuisine_mode: CuisineMode
+}
+
 interface MealPlanReconciliation {
   week_saturday: string
   planned_items: number
@@ -76,15 +86,32 @@ export default function MealPlannerPage() {
   const [pantryDraft, setPantryDraft] = useState<PantryDraft>({ name: '', quantity_note: '', category: '' })
   const [pantrySaving, setPantrySaving] = useState(false)
   const [pantryMsg, setPantryMsg] = useState('')
+  const [defaultsSaving, setDefaultsSaving] = useState(false)
+
+  const applyPlannerDefaults = (defaults: PlannerDefaultsPayload) => {
+    setLunchCount(defaults.lunch_count)
+    setDinnerCount(defaults.dinner_count)
+    setServings(defaults.servings)
+    setMaxPrepTime(defaults.max_prep_time)
+    setVegetarianDays(defaults.vegetarian_days)
+    setMealPrepPreference(defaults.meal_prep_preference)
+    setCuisineMode(defaults.cuisine_mode)
+  }
 
   useEffect(() => {
-    fetch(`/api/meal-plan?week=${weekSat}`)
-      .then(r => r.json())
-      .then(data => {
-        setMealPlan(data)
-        if (data?.meals_json) {
-          setLunchCount(data.meals_json.lunches?.length ?? 0)
-          setDinnerCount(data.meals_json.dinners?.length ?? 0)
+    Promise.all([
+      fetch(`/api/meal-plan?week=${weekSat}`).then(r => r.json()),
+      fetch('/api/meal-plan/defaults').then(r => r.json()).catch(() => null),
+    ])
+      .then(([mealPlanData, defaults]) => {
+        if (defaults && !defaults.error) {
+          applyPlannerDefaults(defaults as PlannerDefaultsPayload)
+        }
+
+        setMealPlan(mealPlanData)
+        if (mealPlanData?.meals_json) {
+          setLunchCount(mealPlanData.meals_json.lunches?.length ?? 0)
+          setDinnerCount(mealPlanData.meals_json.dinners?.length ?? 0)
         }
         setLoading(false)
       })
@@ -152,6 +179,34 @@ export default function MealPlannerPage() {
       setStatus(err instanceof Error ? `❌ ${err.message}` : '❌ Generation failed — try again')
     } finally {
       setGenerating(false)
+    }
+  }
+
+  const saveWeeklyDefaults = async () => {
+    setDefaultsSaving(true)
+    setStatus('Saving weekly planner defaults...')
+    try {
+      const res = await fetch('/api/meal-plan/defaults', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lunch_count: lunchCount,
+          dinner_count: dinnerCount,
+          servings,
+          max_prep_time: maxPrepTime,
+          vegetarian_days: vegetarianDays,
+          meal_prep_preference: mealPrepPreference,
+          cuisine_mode: cuisineMode,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to save defaults')
+      applyPlannerDefaults(data as PlannerDefaultsPayload)
+      setStatus('✅ Weekly planner defaults saved for automations.')
+    } catch (err) {
+      setStatus(err instanceof Error ? `❌ ${err.message}` : '❌ Failed to save defaults')
+    } finally {
+      setDefaultsSaving(false)
     }
   }
 
@@ -259,6 +314,17 @@ export default function MealPlannerPage() {
               }}
             >
               {generating ? 'Generating...' : '✨ Generate AI Meal Plan'}
+            </button>
+            <button
+              onClick={saveWeeklyDefaults}
+              disabled={defaultsSaving || generating}
+              style={{
+                padding: '11px 18px', borderRadius: 100, border: '1px solid var(--border)', cursor: defaultsSaving || generating ? 'not-allowed' : 'pointer',
+                background: 'var(--surface2)', color: 'var(--text-2)',
+                fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-body)', transition: 'all 0.2s',
+              }}
+            >
+              {defaultsSaving ? 'Saving...' : 'Save as Weekly Default'}
             </button>
             {!generating && (
               <p style={{ fontSize: 11.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)' }}>
@@ -496,6 +562,24 @@ export default function MealPlannerPage() {
                 style={{ padding: '9px 0', borderRadius: 100, border: 'none', cursor: 'pointer', background: 'var(--primary)', color: 'var(--bg)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-body)', width: '100%' }}
               >
                 {generating ? 'Generating...' : '↻ Regenerate Plan'}
+              </button>
+              <button
+                onClick={saveWeeklyDefaults}
+                disabled={defaultsSaving || generating}
+                style={{
+                  padding: '9px 0',
+                  borderRadius: 100,
+                  border: '1px solid var(--border)',
+                  cursor: defaultsSaving || generating ? 'not-allowed' : 'pointer',
+                  background: 'var(--surface2)',
+                  color: 'var(--text-2)',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  fontFamily: 'var(--font-body)',
+                  width: '100%',
+                }}
+              >
+                {defaultsSaving ? 'Saving...' : 'Save as Weekly Default'}
               </button>
               {status && <p style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)' }}>{status}</p>}
             </div>

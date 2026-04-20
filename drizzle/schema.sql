@@ -121,6 +121,20 @@ CREATE TABLE IF NOT EXISTS pantry_items (
 
 CREATE UNIQUE INDEX IF NOT EXISTS pantry_items_normalized_name_idx ON pantry_items(normalized_name);
 
+-- ─── Planner Defaults ───────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS planner_defaults (
+  id                    SERIAL PRIMARY KEY,
+  lunch_count           INTEGER     NOT NULL DEFAULT 7,
+  dinner_count          INTEGER     NOT NULL DEFAULT 7,
+  servings              INTEGER     NOT NULL DEFAULT 2,
+  max_prep_time         INTEGER     NOT NULL DEFAULT 30,
+  vegetarian_days       INTEGER     NOT NULL DEFAULT 1,
+  meal_prep_preference  TEXT        NOT NULL DEFAULT 'balanced',
+  cuisine_mode          TEXT        NOT NULL DEFAULT 'mixed',
+  created_at            TIMESTAMPTZ DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ─── Helper: get week's Saturday ─────────────────────────────────
 -- Usage: SELECT get_week_saturday('2025-11-14'::date);
 CREATE OR REPLACE FUNCTION get_week_saturday(d DATE)

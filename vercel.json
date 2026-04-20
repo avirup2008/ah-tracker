@@ -15,6 +15,24 @@
     "app/api/deals/route.ts": {
       "maxDuration": 30,
       "memory": 256
+    },
+    "app/api/cron/deals-refresh/route.ts": {
+      "maxDuration": 30,
+      "memory": 256
+    },
+    "app/api/cron/weekly-meal-plan/route.ts": {
+      "maxDuration": 60,
+      "memory": 512
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/deals-refresh",
+      "schedule": "0 6 * * 3"
+    },
+    {
+      "path": "/api/cron/weekly-meal-plan",
+      "schedule": "15 6 * * 4"
+    }
+  ]
 }
