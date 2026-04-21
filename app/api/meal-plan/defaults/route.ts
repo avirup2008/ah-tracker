@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { getPlannerDefaults, savePlannerDefaults } from '@/lib/meal-plan-service'
+import { getPlannerDefaults, parsePreferenceList, savePlannerDefaults } from '@/lib/meal-plan-service'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -31,6 +31,11 @@ export async function PATCH(req: NextRequest) {
       vegetarian_days: clamp(body.vegetarian_days, 1, 0, 7),
       meal_prep_preference: body.meal_prep_preference === 'high' || body.meal_prep_preference === 'minimal' ? body.meal_prep_preference : 'balanced',
       cuisine_mode: body.cuisine_mode === 'indian' || body.cuisine_mode === 'european' ? body.cuisine_mode : 'mixed',
+      excluded_ingredients: parsePreferenceList(body.excluded_ingredients),
+      preferred_proteins: parsePreferenceList(body.preferred_proteins),
+      must_include_meals: parsePreferenceList(body.must_include_meals),
+      batch_cook_days: parsePreferenceList(body.batch_cook_days),
+      budget_style: body.budget_style === 'cheap' || body.budget_style === 'treat' ? body.budget_style : 'balanced',
     })
     return NextResponse.json(saved)
   } catch (err) {

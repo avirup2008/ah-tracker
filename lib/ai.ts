@@ -469,6 +469,11 @@ export async function generateMealPlan(options: {
   cuisinePreferences?: string[]
   mealPrepPreference?: 'high' | 'balanced' | 'minimal'
   stapleProducts?: string[]
+  excludedIngredients?: string[]
+  preferredProteins?: string[]
+  mustIncludeMeals?: string[]
+  batchCookDays?: string[]
+  budgetStyle?: 'cheap' | 'balanced' | 'treat'
 }): Promise<MealPlanData> {
   const lunchCount = clampMealCount(options.lunchCount)
   const dinnerCount = clampMealCount(options.dinnerCount)
@@ -484,6 +489,16 @@ export async function generateMealPlan(options: {
     : 'Indian and European mixed'
   const mealPrepPreference = options.mealPrepPreference ?? 'balanced'
   const stapleProducts = options.stapleProducts?.filter(Boolean).slice(0, 10).join(', ') || 'No staple history available'
+  const excludedIngredients = options.excludedIngredients?.filter(Boolean).join(', ') || 'None'
+  const preferredProteins = options.preferredProteins?.filter(Boolean).join(', ') || 'No preference'
+  const mustIncludeMeals = options.mustIncludeMeals?.filter(Boolean).join(', ') || 'None'
+  const batchCookDays = options.batchCookDays?.filter(Boolean).join(', ') || 'Sunday'
+  const budgetStyle = options.budgetStyle ?? 'balanced'
+  const ingredientBudgetCap = budgetStyle === 'cheap'
+    ? 0.6
+    : budgetStyle === 'treat'
+      ? 0.8
+      : 0.7
 
   const prompt = `You are a meal planner for a Dutch couple who shops at Albert Heijn.
 They meal prep on Sundays. Recipes must be simple and realistic for Albert Heijn shopping.
@@ -500,6 +515,11 @@ Vegetarian dinners required: ${vegetarianDays}
 Meal-prep preference: ${mealPrepPreference}
 Pantry items already available: ${pantryItems}
 Frequent staples from purchase history: ${stapleProducts}
+Excluded ingredients: ${excludedIngredients}
+Preferred proteins: ${preferredProteins}
+Must-include meal ideas this week: ${mustIncludeMeals}
+Preferred batch-cook days: ${batchCookDays}
+Budget style: ${budgetStyle}
 
 Current AH Bonus deals:
 ${dealsText}
@@ -512,15 +532,21 @@ Generate exactly ${lunchCount} lunches and exactly ${dinnerCount} dinners. Rules
 - AH product names: Dutch first, English in brackets e.g. "Kipblokjes (chicken pieces)"
 - Prioritise Bonus deal ingredients and the user's frequent staples when sensible
 - Reuse pantry items where possible to reduce shopping
+- Never use excluded ingredients
+- Prefer the listed proteins when they fit the requested cuisines
+- Try to incorporate the must-include meal ideas naturally without breaking counts
 - Use realistic AH 2026 NL prices
 - meal_prep_friendly: true if can batch cook Sunday
 - Honour the meal-prep preference: "high" means many batch-cook meals, "minimal" means fresher day-by-day meals
+- Use the preferred batch-cook days when choosing which meals should be meal-prep friendly
 - Simple recipes: max 6 numbered steps
 - Respect cuisine preference instead of forcing a fixed split
 - Lunches: lighter (salads, wraps, soup). Dinners: more substantial
 - Create at least ${vegetarianDays} vegetarian dinners
 - Every recipe must fit within ${maxPrepTime} minutes active prep
-- Total cost max €${Math.round(options.budget * 0.7)} (leaving room for breakfast/snacks)
+- Total cost max €${Math.round(options.budget * ingredientBudgetCap)} (leaving room for breakfast/snacks)
+- "cheap" budget style means lean harder on low-cost staples and fewer premium proteins
+- "treat" budget style can include one or two slightly nicer dinners if still under budget
 
 Respond with ONLY valid JSON, no markdown:
 {

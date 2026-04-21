@@ -8,6 +8,7 @@ import type { MealPlan, MealPlanData, Meal, PantryItem, ShoppingListItem } from 
 type View = 'plan' | 'shopping'
 type MealPrepPreference = 'high' | 'balanced' | 'minimal'
 type CuisineMode = 'mixed' | 'indian' | 'european'
+type BudgetStyle = 'cheap' | 'balanced' | 'treat'
 
 interface ProductInsight {
   name: string
@@ -31,6 +32,11 @@ interface PlannerDefaultsPayload {
   vegetarian_days: number
   meal_prep_preference: MealPrepPreference
   cuisine_mode: CuisineMode
+  excluded_ingredients: string[]
+  preferred_proteins: string[]
+  must_include_meals: string[]
+  batch_cook_days: string[]
+  budget_style: BudgetStyle
 }
 
 interface MealPlanReconciliation {
@@ -76,6 +82,11 @@ export default function MealPlannerPage() {
   const [vegetarianDays, setVegetarianDays] = useState(1)
   const [mealPrepPreference, setMealPrepPreference] = useState<MealPrepPreference>('balanced')
   const [cuisineMode, setCuisineMode] = useState<CuisineMode>('mixed')
+  const [excludedIngredients, setExcludedIngredients] = useState('')
+  const [preferredProteins, setPreferredProteins] = useState('')
+  const [mustIncludeMeals, setMustIncludeMeals] = useState('')
+  const [batchCookDays, setBatchCookDays] = useState('Sunday')
+  const [budgetStyle, setBudgetStyle] = useState<BudgetStyle>('balanced')
   const [view, setView] = useState<View>('plan')
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null)
   const [mealType, setMealType] = useState<'lunch' | 'dinner'>('dinner')
@@ -96,6 +107,11 @@ export default function MealPlannerPage() {
     setVegetarianDays(defaults.vegetarian_days)
     setMealPrepPreference(defaults.meal_prep_preference)
     setCuisineMode(defaults.cuisine_mode)
+    setExcludedIngredients((defaults.excluded_ingredients ?? []).join(', '))
+    setPreferredProteins((defaults.preferred_proteins ?? []).join(', '))
+    setMustIncludeMeals((defaults.must_include_meals ?? []).join(', '))
+    setBatchCookDays((defaults.batch_cook_days ?? []).join(', '))
+    setBudgetStyle(defaults.budget_style)
   }
 
   useEffect(() => {
@@ -168,6 +184,11 @@ export default function MealPlannerPage() {
           vegetarianDays,
           mealPrepPreference,
           cuisineMode,
+          excludedIngredients,
+          preferredProteins,
+          mustIncludeMeals,
+          batchCookDays,
+          budgetStyle,
           regenerate,
         }),
       })
@@ -197,6 +218,11 @@ export default function MealPlannerPage() {
           vegetarian_days: vegetarianDays,
           meal_prep_preference: mealPrepPreference,
           cuisine_mode: cuisineMode,
+          excluded_ingredients: excludedIngredients,
+          preferred_proteins: preferredProteins,
+          must_include_meals: mustIncludeMeals,
+          batch_cook_days: batchCookDays,
+          budget_style: budgetStyle,
         }),
       })
       const data = await res.json()
@@ -275,7 +301,21 @@ export default function MealPlannerPage() {
                 { value: 'minimal', label: 'Fresh daily' },
               ]}
             />
+            <SelectInput
+              label="Budget Style"
+              value={budgetStyle}
+              onChange={(value) => setBudgetStyle(value as BudgetStyle)}
+              options={[
+                { value: 'cheap', label: 'Cheap week' },
+                { value: 'balanced', label: 'Balanced' },
+                { value: 'treat', label: 'Treat week' },
+              ]}
+            />
           </div>
+          <PreferenceListInput label="Avoid Ingredients" value={excludedIngredients} onChange={setExcludedIngredients} placeholder="e.g. mushrooms, tuna, blue cheese" />
+          <PreferenceListInput label="Preferred Proteins" value={preferredProteins} onChange={setPreferredProteins} placeholder="e.g. chicken, lentils, salmon, chickpeas" />
+          <PreferenceListInput label="Must-Include Meals" value={mustIncludeMeals} onChange={setMustIncludeMeals} placeholder="e.g. curry, pasta bake, soup" />
+          <PreferenceListInput label="Batch-Cook Days" value={batchCookDays} onChange={setBatchCookDays} placeholder="e.g. Sunday, Wednesday" />
           <PantryPanel
             items={pantryItems}
             draft={pantryDraft}
@@ -328,7 +368,7 @@ export default function MealPlannerPage() {
             </button>
             {!generating && (
               <p style={{ fontSize: 11.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)' }}>
-                Requesting {lunchCount} lunch{lunchCount !== 1 ? 'es' : ''}, {dinnerCount} dinner{dinnerCount !== 1 ? 's' : ''}, {servings} serving{servings !== 1 ? 's' : ''}, and max {maxPrepTime} min prep.
+                Requesting {lunchCount} lunch{lunchCount !== 1 ? 'es' : ''}, {dinnerCount} dinner{dinnerCount !== 1 ? 's' : ''}, {servings} serving{servings !== 1 ? 's' : ''}, max {maxPrepTime} min prep, and {budgetStyle} budget mode.
               </p>
             )}
             {status && <p style={{ fontSize: 12.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)' }}>{status}</p>}
@@ -492,6 +532,10 @@ export default function MealPlannerPage() {
                   <span className="mono" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>{maxPrepTime} min</span>
                 </div>
                 <div className="flex justify-between py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 12.5, color: 'var(--text-2)', fontFamily: 'var(--font-body)' }}>Budget style</span>
+                  <span className="mono" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>{budgetStyle}</span>
+                </div>
+                <div className="flex justify-between py-2" style={{ borderBottom: '1px solid var(--border)' }}>
                   <span style={{ fontSize: 12.5, color: 'var(--text-2)', fontFamily: 'var(--font-body)' }}>Meal-prep friendly</span>
                   <span className="mono" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>
                     {[...(meals.lunches ?? []), ...(meals.dinners ?? [])].filter(m => m.meal_prep_friendly).length}
@@ -538,6 +582,21 @@ export default function MealPlannerPage() {
                 ]}
                 compact
               />
+              <SelectInput
+                label="Budget Style"
+                value={budgetStyle}
+                onChange={(value) => setBudgetStyle(value as BudgetStyle)}
+                options={[
+                  { value: 'cheap', label: 'Cheap' },
+                  { value: 'balanced', label: 'Balanced' },
+                  { value: 'treat', label: 'Treat' },
+                ]}
+                compact
+              />
+              <PreferenceListInput label="Avoid Ingredients" value={excludedIngredients} onChange={setExcludedIngredients} placeholder="mushrooms, tuna" compact />
+              <PreferenceListInput label="Preferred Proteins" value={preferredProteins} onChange={setPreferredProteins} placeholder="chicken, lentils" compact />
+              <PreferenceListInput label="Must-Include Meals" value={mustIncludeMeals} onChange={setMustIncludeMeals} placeholder="curry, soup" compact />
+              <PreferenceListInput label="Batch-Cook Days" value={batchCookDays} onChange={setBatchCookDays} placeholder="Sunday, Wednesday" compact />
               <PantryPanel
                 items={pantryItems}
                 draft={pantryDraft}
@@ -760,6 +819,52 @@ function SelectInput({
           <option key={option.value} value={option.value}>{option.label}</option>
         ))}
       </select>
+    </label>
+  )
+}
+
+function PreferenceListInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  compact = false,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+  compact?: boolean
+}) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span style={{
+        fontSize: compact ? 10 : 11,
+        color: 'var(--text-3)',
+        fontFamily: 'var(--font-mono)',
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+      }}>
+        {label}
+      </span>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={compact ? 2 : 3}
+        style={{
+          width: '100%',
+          padding: compact ? '9px 10px' : '11px 12px',
+          borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--border)',
+          background: 'var(--surface2)',
+          color: 'var(--text)',
+          fontFamily: 'var(--font-body)',
+          fontSize: compact ? 12 : 13,
+          outline: 'none',
+          resize: 'vertical',
+        }}
+      />
     </label>
   )
 }

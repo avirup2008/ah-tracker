@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { format } from 'date-fns'
 import { getCurrentWeekSaturday } from '@/lib/utils'
-import { generateAndStoreMealPlan, getMealPlanByWeek, savePlannerDefaults } from '@/lib/meal-plan-service'
+import { generateAndStoreMealPlan, getMealPlanByWeek, parsePreferenceList, savePlannerDefaults } from '@/lib/meal-plan-service'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -37,6 +37,11 @@ export async function POST(req: NextRequest) {
       vegetarianDays?: number
       mealPrepPreference?: 'high' | 'balanced' | 'minimal'
       cuisineMode?: 'mixed' | 'indian' | 'european'
+      excludedIngredients?: string[] | string
+      preferredProteins?: string[] | string
+      mustIncludeMeals?: string[] | string
+      batchCookDays?: string[] | string
+      budgetStyle?: 'cheap' | 'balanced' | 'treat'
     }
 
     const weekSaturday = body.weekSaturday ?? format(getCurrentWeekSaturday(), 'yyyy-MM-dd')
@@ -50,6 +55,11 @@ export async function POST(req: NextRequest) {
       vegetarian_days: Math.max(0, Math.min(dinnerCount, Math.floor(body.vegetarianDays ?? 0))),
       meal_prep_preference: body.mealPrepPreference ?? 'balanced',
       cuisine_mode: body.cuisineMode ?? 'mixed',
+      excluded_ingredients: parsePreferenceList(body.excludedIngredients),
+      preferred_proteins: parsePreferenceList(body.preferredProteins),
+      must_include_meals: parsePreferenceList(body.mustIncludeMeals),
+      batch_cook_days: parsePreferenceList(body.batchCookDays),
+      budget_style: body.budgetStyle ?? 'balanced',
     } as const
 
     await savePlannerDefaults(overrides)

@@ -140,9 +140,19 @@ const tables = [
     vegetarian_days       INTEGER     NOT NULL DEFAULT 1,
     meal_prep_preference  TEXT        NOT NULL DEFAULT 'balanced',
     cuisine_mode          TEXT        NOT NULL DEFAULT 'mixed',
+    excluded_ingredients  TEXT[]      NOT NULL DEFAULT '{}',
+    preferred_proteins    TEXT[]      NOT NULL DEFAULT '{}',
+    must_include_meals    TEXT[]      NOT NULL DEFAULT '{}',
+    batch_cook_days       TEXT[]      NOT NULL DEFAULT '{Sunday}',
+    budget_style          TEXT        NOT NULL DEFAULT 'balanced',
     created_at            TIMESTAMPTZ DEFAULT NOW(),
     updated_at            TIMESTAMPTZ DEFAULT NOW()
   )`,
+  `ALTER TABLE planner_defaults ADD COLUMN IF NOT EXISTS excluded_ingredients TEXT[] NOT NULL DEFAULT '{}'`,
+  `ALTER TABLE planner_defaults ADD COLUMN IF NOT EXISTS preferred_proteins TEXT[] NOT NULL DEFAULT '{}'`,
+  `ALTER TABLE planner_defaults ADD COLUMN IF NOT EXISTS must_include_meals TEXT[] NOT NULL DEFAULT '{}'`,
+  `ALTER TABLE planner_defaults ADD COLUMN IF NOT EXISTS batch_cook_days TEXT[] NOT NULL DEFAULT '{Sunday}'`,
+  `ALTER TABLE planner_defaults ADD COLUMN IF NOT EXISTS budget_style TEXT NOT NULL DEFAULT 'balanced'`,
 
   `CREATE TABLE IF NOT EXISTS automation_status (
     job_key               TEXT PRIMARY KEY,
