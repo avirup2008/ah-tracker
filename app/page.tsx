@@ -8,8 +8,10 @@ import { MealPlanPreview } from '@/components/dashboard/MealPlanPreview'
 import { HealthStrip } from '@/components/dashboard/HealthStrip'
 import { AiInsightsDashboard } from '@/components/dashboard/AiInsightsDashboard'
 import { ReviewQueueMonitor } from '@/components/dashboard/ReviewQueueMonitor'
+import { BudgetAlertMonitor } from '@/components/dashboard/BudgetAlertMonitor'
 import { reconcileMealPlan } from '@/lib/reconciliation'
 import { getAutomationStatus } from '@/lib/automation-status'
+import { MONTHLY_TARGET, WEEKLY_BUDGET } from '@/lib/budget-constants'
 
 export const revalidate = 0
 export const fetchCache = 'force-no-store'
@@ -140,8 +142,6 @@ async function getDashboardData() {
   const weekReceipts = Number(weekData[0]?.receipt_count  ?? 0)
   const monthSpend   = Number(monthData[0]?.total_spend   ?? 0)
   const lastMonthSpend = Number(lastMonthData[0]?.total_spend ?? 0)
-  const WEEKLY_BUDGET  = 90
-  const MONTHLY_TARGET = Math.round(WEEKLY_BUDGET * 4.33 * 100) / 100
 
   const today      = now.getDate()
   const daysInMo   = new Date(yr, mo, 0).getDate()
@@ -176,7 +176,10 @@ async function getMealPlan() {
 export default async function DashboardPage() {
   const [data, mealPlan] = await Promise.all([getDashboardData(), getMealPlan()])
   const reconciliation = await reconcileMealPlan(mealPlan)
-  const reviewReminder = await getAutomationStatus('review_queue_reminder')
+  const [reviewReminder, budgetReminder] = await Promise.all([
+    getAutomationStatus('review_queue_reminder'),
+    getAutomationStatus('over_budget_alert'),
+  ])
 
   return (
     <div className="flex flex-col gap-5">
@@ -227,6 +230,7 @@ export default async function DashboardPage() {
       </div>
 
       <ReviewQueueMonitor reminder={reviewReminder} />
+      <BudgetAlertMonitor reminder={budgetReminder} />
 
     </div>
   )

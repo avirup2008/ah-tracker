@@ -27,6 +27,10 @@
     "app/api/cron/review-queue-reminder/route.ts": {
       "maxDuration": 30,
       "memory": 256
+    },
+    "app/api/cron/over-budget-alert/route.ts": {
+      "maxDuration": 30,
+      "memory": 256
     }
   },
   "crons": [
@@ -41,6 +45,10 @@
     {
       "path": "/api/cron/review-queue-reminder",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/over-budget-alert",
+      "schedule": "0 18 * * *"
     }
   ]
 }
