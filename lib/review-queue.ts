@@ -22,6 +22,14 @@ export interface ReviewAssessment {
   reasons: string[]
 }
 
+export interface ReviewQueueSummary {
+  total: number
+  highPriority: number
+  mediumPriority: number
+  lowPriority: number
+  topReasons: string[]
+}
+
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100
 }
@@ -111,5 +119,35 @@ export function assessReceiptReview(input: ReviewSignalInput): ReviewAssessment 
     priority,
     needs_review: needsReview,
     reasons,
+  }
+}
+
+export function summarizeReviewQueue(items: Array<{ review: ReviewAssessment }>): ReviewQueueSummary {
+  const reasonCounts = new Map<string, number>()
+  let highPriority = 0
+  let mediumPriority = 0
+  let lowPriority = 0
+
+  for (const item of items) {
+    if (item.review.priority === 'high') highPriority += 1
+    if (item.review.priority === 'medium') mediumPriority += 1
+    if (item.review.priority === 'low') lowPriority += 1
+
+    for (const reason of item.review.reasons) {
+      reasonCounts.set(reason, (reasonCounts.get(reason) ?? 0) + 1)
+    }
+  }
+
+  const topReasons = [...reasonCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 3)
+    .map(([reason, count]) => `${reason} (${count})`)
+
+  return {
+    total: items.length,
+    highPriority,
+    mediumPriority,
+    lowPriority,
+    topReasons,
   }
 }

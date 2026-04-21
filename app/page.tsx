@@ -7,7 +7,9 @@ import { InflationTracker } from '@/components/dashboard/InflationTracker'
 import { MealPlanPreview } from '@/components/dashboard/MealPlanPreview'
 import { HealthStrip } from '@/components/dashboard/HealthStrip'
 import { AiInsightsDashboard } from '@/components/dashboard/AiInsightsDashboard'
+import { ReviewQueueMonitor } from '@/components/dashboard/ReviewQueueMonitor'
 import { reconcileMealPlan } from '@/lib/reconciliation'
+import { getAutomationStatus } from '@/lib/automation-status'
 
 export const revalidate = 0
 export const fetchCache = 'force-no-store'
@@ -174,6 +176,7 @@ async function getMealPlan() {
 export default async function DashboardPage() {
   const [data, mealPlan] = await Promise.all([getDashboardData(), getMealPlan()])
   const reconciliation = await reconcileMealPlan(mealPlan)
+  const reviewReminder = await getAutomationStatus('review_queue_reminder')
 
   return (
     <div className="flex flex-col gap-5">
@@ -222,6 +225,8 @@ export default async function DashboardPage() {
         <InflationTracker items={data.inflation} />
         <MealPlanPreview mealPlan={mealPlan} reconciliation={reconciliation} />
       </div>
+
+      <ReviewQueueMonitor reminder={reviewReminder} />
 
     </div>
   )

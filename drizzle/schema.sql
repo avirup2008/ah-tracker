@@ -135,6 +135,19 @@ CREATE TABLE IF NOT EXISTS planner_defaults (
   updated_at            TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ─── Automation Status ──────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS automation_status (
+  job_key               TEXT PRIMARY KEY,
+  job_name              TEXT        NOT NULL,
+  status                TEXT        NOT NULL DEFAULT 'ok',
+  severity              TEXT        NOT NULL DEFAULT 'info',
+  message               TEXT        NOT NULL,
+  summary_json          JSONB,
+  last_run_at           TIMESTAMPTZ DEFAULT NOW(),
+  created_at            TIMESTAMPTZ DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ─── Helper: get week's Saturday ─────────────────────────────────
 -- Usage: SELECT get_week_saturday('2025-11-14'::date);
 CREATE OR REPLACE FUNCTION get_week_saturday(d DATE)

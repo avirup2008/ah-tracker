@@ -144,6 +144,18 @@ const tables = [
     updated_at            TIMESTAMPTZ DEFAULT NOW()
   )`,
 
+  `CREATE TABLE IF NOT EXISTS automation_status (
+    job_key               TEXT PRIMARY KEY,
+    job_name              TEXT        NOT NULL,
+    status                TEXT        NOT NULL DEFAULT 'ok',
+    severity              TEXT        NOT NULL DEFAULT 'info',
+    message               TEXT        NOT NULL,
+    summary_json          JSONB,
+    last_run_at           TIMESTAMPTZ DEFAULT NOW(),
+    created_at            TIMESTAMPTZ DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ DEFAULT NOW()
+  )`,
+
   `CREATE INDEX IF NOT EXISTS receipts_date_idx   ON receipts(receipt_date)`,
   `CREATE INDEX IF NOT EXISTS receipts_year_idx   ON receipts(year, month)`,
   `CREATE INDEX IF NOT EXISTS receipts_week_idx   ON receipts(week_saturday)`,
