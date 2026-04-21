@@ -1,4 +1,5 @@
 import sql from './db'
+import { mergeAutomationStatuses } from './automation-jobs'
 
 export interface AutomationStatusRecord {
   job_key: string
@@ -66,4 +67,9 @@ export async function listAutomationStatuses() {
   `
 
   return rows as unknown as AutomationStatusRecord[]
+}
+
+export async function listAutomationStatusesWithDefinitions() {
+  const rows = await listAutomationStatuses()
+  return mergeAutomationStatuses(rows)
 }
