@@ -143,7 +143,7 @@ export function recommendDealsForProducts(deals: AhDeal[], products: ProductInsi
   const recommendations: DealRecommendation[] = []
 
   for (const deal of deals) {
-    const normalizedDeal = normalizeItemName(deal.name)
+    const normalizedDeal = deal.normalized_name ?? normalizeItemName(deal.name)
     const dealTokens = tokenize(normalizedDeal)
 
     let bestMatch: { product: ProductInsight; score: number; match_type: 'exact' | 'partial' } | null = null

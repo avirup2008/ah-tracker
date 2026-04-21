@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { ParsedItem } from './parser'
 import type { MealPlanData, AhDeal, Meal, MealIngredient, ShoppingListItem } from './db'
+import { dedupeAndScoreDeals } from './deal-normalization'
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!)
 const MODEL = 'gemini-2.5-flash-lite'
@@ -292,7 +293,6 @@ function sanitizeShoppingList(value: unknown): ShoppingListItem[] {
 function sanitizeDeals(value: unknown, validUntil: string): AhDeal[] {
   if (!Array.isArray(value)) return []
 
-  const seen = new Set<string>()
   const deals: AhDeal[] = []
   for (const entry of value) {
     if (!isRecord(entry)) continue
@@ -300,10 +300,6 @@ function sanitizeDeals(value: unknown, validUntil: string): AhDeal[] {
     const name = asNonEmptyString(entry.name)
     const discount = asNonEmptyString(entry.discount)
     if (!name || !discount) continue
-
-    const key = `${name}::${discount}`
-    if (seen.has(key)) continue
-    seen.add(key)
 
     deals.push({
       name,
@@ -315,7 +311,7 @@ function sanitizeDeals(value: unknown, validUntil: string): AhDeal[] {
     })
   }
 
-  return deals
+  return dedupeAndScoreDeals(deals, validUntil)
 }
 
 async function repairCategorisedItems(items: ParsedItem[]): Promise<CategorisedItem[]> {
@@ -638,5 +634,8 @@ Respond with ONLY a valid JSON array, no markdown.`
   }
 
   // Force correct valid_until on every deal regardless of what Gemini returned
-  return deals.map(d => ({ ...d, valid_until: validUntil }))
+  return dedupeAndScoreDeals(
+    deals.map(d => ({ ...d, valid_until: validUntil })),
+    validUntil
+  )
 }

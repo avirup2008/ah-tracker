@@ -13,10 +13,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const deals = await refreshDealsCache(true)
+    const refreshed = await refreshDealsCache(true)
     return NextResponse.json({
       ok: true,
-      refreshed: deals.length,
+      refreshed: refreshed.deals.length,
+      quality: refreshed.quality,
+      usedFallback: refreshed.usedFallback,
       fetched_at: new Date().toISOString(),
     })
   } catch (err) {

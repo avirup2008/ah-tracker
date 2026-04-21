@@ -9,6 +9,15 @@ interface DealsResponse {
   recommendations: AhDeal[]
   fetched_at: string
   cached: boolean
+  usedFallback?: boolean
+  quality?: {
+    total: number
+    unique_products: number
+    category_coverage: number
+    missing_prices: number
+    avg_confidence: number
+    quality: 'high' | 'medium' | 'low'
+  }
 }
 
 export default function DealsPage() {
@@ -55,7 +64,12 @@ export default function DealsPage() {
           <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3, fontFamily: 'var(--font-body)' }}>
             {data ? (
               <>
-                {data.cached ? '🗄️ Cached' : '🔄 Live'} · Fetched {formatDate(data.fetched_at, 'd MMM HH:mm')} · {deals.length} deals found
+                {data.usedFallback ? '🛟 Last good set' : data.cached ? '🗄️ Cached' : '🔄 Live'}
+                {' · '}
+                Fetched {formatDate(data.fetched_at, 'd MMM HH:mm')}
+                {' · '}
+                {deals.length} deals found
+                {data.quality && ` · ${data.quality.quality} quality (${data.quality.avg_confidence}% avg confidence)`}
               </>
             ) : 'Loading current Bonuskaart offers...'}
           </p>
@@ -87,6 +101,12 @@ export default function DealsPage() {
             ingredients on Bonus deal this week are automatically prioritised and flagged. Head to the{' '}
             <strong>Meal Planner</strong> to generate a shopping list that maximises your Bonuskaart savings.
           </p>
+          {data?.quality && (
+            <p style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginTop: 8 }}>
+              Quality check: {data.quality.unique_products} unique products across {data.quality.category_coverage} categories.
+              {data.usedFallback ? ' Showing the last good cached set because the latest refresh was weaker.' : ''}
+            </p>
+          )}
         </div>
       </div>
 

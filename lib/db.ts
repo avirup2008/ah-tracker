@@ -103,11 +103,13 @@ export interface ShoppingListItem {
 
 export interface AhDeal {
   name: string
+  normalized_name?: string
   discount: string
   original_price?: number
   deal_price?: number
   valid_until?: string
   category?: string
+  confidence?: number
   matched_product?: string
   match_type?: 'exact' | 'partial'
   recommendation?: 'buy_now' | 'good_if_needed'
