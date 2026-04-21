@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS pantry_items (
   id              SERIAL PRIMARY KEY,
   name            TEXT        NOT NULL,
   normalized_name TEXT        NOT NULL,
+  family_key      TEXT,
   quantity_note   TEXT,
   category        TEXT,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
@@ -120,6 +121,7 @@ CREATE TABLE IF NOT EXISTS pantry_items (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS pantry_items_normalized_name_idx ON pantry_items(normalized_name);
+CREATE INDEX IF NOT EXISTS pantry_items_family_key_idx ON pantry_items(family_key);
 
 -- ─── Planner Defaults ───────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS planner_defaults (

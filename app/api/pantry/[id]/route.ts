@@ -35,6 +35,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       SET
         name = ${item.name},
         normalized_name = ${item.normalized_name},
+        family_key = ${item.family_key},
         quantity_note = ${item.quantity_note},
         category = ${item.category},
         updated_at = NOW()

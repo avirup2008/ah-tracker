@@ -5,6 +5,7 @@ import { generateMealPlan, buildShoppingList } from './ai'
 import { getCurrentWeekSaturday } from './utils'
 import { getProductIntelligence } from './product-intelligence'
 import { getCurrentDealsWithCache } from './deals-service'
+import { buildFamilyKey } from './product-catalog'
 
 export interface PlannerDefaults {
   lunch_count: number
@@ -86,14 +87,25 @@ export function sanitizePlannerDefaults(input: Partial<PlannerDefaults>): Planne
 
 export async function getPantryItemsForPlanning() {
   const rows = await sql`
-    SELECT name, quantity_note
+    SELECT name, quantity_note, family_key
     FROM pantry_items
     ORDER BY updated_at DESC, id DESC
   `
+  const byFamily = new Set<string>()
+  const pantryItems: string[] = []
 
-  return rows.map((row: Record<string, unknown>) =>
-    row.quantity_note ? `${row.name} (${row.quantity_note})` : String(row.name)
-  )
+  for (const row of rows as Record<string, unknown>[]) {
+    const name = String(row.name ?? '')
+    if (!name) continue
+    const familyKey = String(row.family_key ?? '') || buildFamilyKey(name) || name
+    if (byFamily.has(familyKey)) continue
+    byFamily.add(familyKey)
+    pantryItems.push(
+      row.quantity_note ? `${name} (${row.quantity_note})` : name
+    )
+  }
+
+  return pantryItems
 }
 
 export async function getPlannerDefaults(): Promise<PlannerDefaults> {

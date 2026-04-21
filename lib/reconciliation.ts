@@ -1,6 +1,7 @@
 import sql from './db.ts'
 import { normalizeItemName } from './normalization.ts'
 import type { MealPlan, ShoppingListItem } from './db.ts'
+import { buildFamilyKey, extractPackSignature } from './product-catalog.ts'
 
 export interface ReconciliationItem {
   planned_name: string
@@ -35,6 +36,8 @@ export interface MealPlanReconciliation {
 
 interface PurchaseRow {
   normalized_name: string
+  family_key: string
+  pack_signature: string | null
   display_name: string
   category: string | null
   spend: number
@@ -44,6 +47,8 @@ interface PurchaseRow {
 interface PlannedRow {
   planned_name: string
   normalized_name: string
+  family_key: string
+  pack_signature: string | null
   quantity?: string
   category?: string | null
   est_price?: number | null
@@ -63,6 +68,8 @@ export function flattenShoppingList(shoppingList: ShoppingListItem[] | null | un
     section.items.map((item) => ({
       planned_name: item.ah_name,
       normalized_name: normalizeItemName(item.ah_name),
+      family_key: buildFamilyKey(item.ah_name),
+      pack_signature: extractPackSignature(item.ah_name),
       quantity: item.quantity,
       category: section.category,
       est_price: item.est_price,
@@ -80,14 +87,19 @@ export function matchPlannedItems(plannedItems: PlannedRow[], purchases: Purchas
     let bestScore = 0
 
     for (const purchase of purchases) {
-      if (usedPurchaseNames.has(purchase.normalized_name)) continue
+      if (usedPurchaseNames.has(purchase.family_key)) continue
 
       let score = 0
-      if (purchase.normalized_name === planned.normalized_name) {
+      if (purchase.family_key === planned.family_key) {
+        score = 90
+        if (planned.pack_signature && purchase.pack_signature) {
+          score += planned.pack_signature === purchase.pack_signature ? 10 : -8
+        }
+      } else if (purchase.normalized_name === planned.normalized_name) {
         score = 100
       } else {
-        const plannedTokens = tokenize(planned.normalized_name)
-        const purchaseTokens = tokenize(purchase.normalized_name)
+        const plannedTokens = tokenize(planned.family_key || planned.normalized_name)
+        const purchaseTokens = tokenize(purchase.family_key || purchase.normalized_name)
         const overlap = plannedTokens.filter((token) => purchaseTokens.includes(token))
         if (overlap.length >= 2 || planned.normalized_name.includes(purchase.normalized_name) || purchase.normalized_name.includes(planned.normalized_name)) {
           score = overlap.length * 20 + 20
@@ -101,7 +113,7 @@ export function matchPlannedItems(plannedItems: PlannedRow[], purchases: Purchas
     }
 
     if (best && bestScore >= 40) {
-      usedPurchaseNames.add(best.normalized_name)
+      usedPurchaseNames.add(best.family_key)
       matched.push({
         planned_name: planned.planned_name,
         matched_name: best.display_name,
@@ -125,7 +137,7 @@ export function matchPlannedItems(plannedItems: PlannedRow[], purchases: Purchas
   }
 
   const unplanned = purchases
-    .filter((purchase) => !usedPurchaseNames.has(purchase.normalized_name))
+    .filter((purchase) => !usedPurchaseNames.has(purchase.family_key))
     .map((purchase) => ({
       name: purchase.display_name,
       category: purchase.category,
@@ -142,6 +154,7 @@ async function getPurchasedItemsForWeek(weekSaturday: string): Promise<PurchaseR
       COALESCE(ri.normalized_name, ri.clean_name, ri.raw_name) AS normalized_name,
       MAX(COALESCE(ri.clean_name, ri.raw_name)) AS display_name,
       MAX(ri.category) AS category,
+      MAX(ri.raw_name) AS raw_name,
       ROUND(SUM(ri.total_price)::numeric, 2) AS spend,
       COUNT(DISTINCT ri.receipt_id) AS purchase_count
     FROM receipt_items ri
@@ -154,13 +167,41 @@ async function getPurchasedItemsForWeek(weekSaturday: string): Promise<PurchaseR
     GROUP BY COALESCE(ri.normalized_name, ri.clean_name, ri.raw_name)
   `
 
-  return rows.map((row: Record<string, unknown>) => ({
-    normalized_name: String(row.normalized_name ?? ''),
-    display_name: String(row.display_name ?? row.normalized_name ?? ''),
-    category: row.category ? String(row.category) : null,
-    spend: Number(row.spend ?? 0),
-    purchase_count: Number(row.purchase_count ?? 0),
-  }))
+  const merged = new Map<string, PurchaseRow>()
+
+  for (const row of rows as Record<string, unknown>[]) {
+    const normalized_name = String(row.normalized_name ?? '')
+    const display_name = String(row.display_name ?? row.normalized_name ?? '')
+    const family_key = buildFamilyKey(String(row.display_name ?? row.raw_name ?? row.normalized_name ?? '')) || normalized_name
+    const pack_signature = extractPackSignature(String(row.raw_name ?? row.display_name ?? ''))
+    const spend = Number(row.spend ?? 0)
+    const purchase_count = Number(row.purchase_count ?? 0)
+    const existing = merged.get(family_key)
+
+    if (!existing) {
+      merged.set(family_key, {
+        normalized_name,
+        family_key,
+        pack_signature,
+        display_name,
+        category: row.category ? String(row.category) : null,
+        spend,
+        purchase_count,
+      })
+      continue
+    }
+
+    merged.set(family_key, {
+      ...existing,
+      normalized_name: existing.purchase_count >= purchase_count ? existing.normalized_name : normalized_name,
+      display_name: existing.purchase_count >= purchase_count ? existing.display_name : display_name,
+      pack_signature: existing.pack_signature ?? pack_signature,
+      spend: Math.round((existing.spend + spend) * 100) / 100,
+      purchase_count: existing.purchase_count + purchase_count,
+    })
+  }
+
+  return [...merged.values()]
 }
 
 export async function reconcileMealPlan(mealPlan: MealPlan | null): Promise<MealPlanReconciliation | null> {

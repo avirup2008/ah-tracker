@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
       SELECT id
       FROM pantry_items
       WHERE normalized_name = ${item.normalized_name}
+         OR family_key = ${item.family_key}
       LIMIT 1
     `
 
@@ -46,8 +47,10 @@ export async function POST(req: NextRequest) {
         UPDATE pantry_items
         SET
           name = ${item.name},
+          normalized_name = ${item.normalized_name},
           quantity_note = ${item.quantity_note},
           category = ${item.category},
+          family_key = ${item.family_key},
           updated_at = NOW()
         WHERE id = ${existing[0].id}
         RETURNING *
@@ -56,10 +59,11 @@ export async function POST(req: NextRequest) {
     }
 
     const inserted = await sql`
-      INSERT INTO pantry_items (name, normalized_name, quantity_note, category)
+      INSERT INTO pantry_items (name, normalized_name, family_key, quantity_note, category)
       VALUES (
         ${item.name},
         ${item.normalized_name},
+        ${item.family_key},
         ${item.quantity_note},
         ${item.category}
       )

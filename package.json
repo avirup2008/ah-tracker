@@ -10,7 +10,8 @@
     "lint": "next lint",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
     "db:migrate": "node scripts/migrate.mjs",
-    "db:backfill-normalized-items": "node --experimental-strip-types scripts/backfill-normalized-items.mts"
+    "db:backfill-normalized-items": "node --experimental-strip-types scripts/backfill-normalized-items.mts",
+    "db:backfill-pantry-family-keys": "node --experimental-strip-types scripts/backfill-pantry-family-keys.mts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",

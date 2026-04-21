@@ -13,6 +13,7 @@ test('sanitizePantryInput normalizes pantry items', () => {
   assert.deepEqual(item, {
     name: 'AH HV Melk',
     normalized_name: 'AH HALFVOLLE MELK',
+    family_key: 'halfvolle melk',
     quantity_note: '2 cartons',
     category: 'Zuivel & Eieren',
   })

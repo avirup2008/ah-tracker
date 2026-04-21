@@ -1,4 +1,5 @@
 import { normalizeItemName } from './normalization.ts'
+import { buildFamilyKey } from './product-catalog.ts'
 
 export interface PantryInput {
   name?: string | null
@@ -10,6 +11,7 @@ export interface PantryItemRecord {
   id: number
   name: string
   normalized_name: string
+  family_key: string
   quantity_note: string | null
   category: string | null
   created_at: string
@@ -27,6 +29,7 @@ export function sanitizePantryInput(input: PantryInput) {
   return {
     name,
     normalized_name: normalizeItemName(name),
+    family_key: buildFamilyKey(name),
     quantity_note: parseOptionalString(input.quantity_note),
     category: parseOptionalString(input.category),
   }

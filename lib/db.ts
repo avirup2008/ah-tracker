@@ -120,6 +120,7 @@ export interface PantryItem {
   id: number
   name: string
   normalized_name: string
+  family_key: string | null
   quantity_note: string | null
   category: string | null
   created_at: string

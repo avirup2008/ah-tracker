@@ -125,11 +125,13 @@ const tables = [
     id              SERIAL PRIMARY KEY,
     name            TEXT        NOT NULL,
     normalized_name TEXT        NOT NULL,
+    family_key      TEXT,
     quantity_note   TEXT,
     category        TEXT,
     created_at      TIMESTAMPTZ DEFAULT NOW(),
     updated_at      TIMESTAMPTZ DEFAULT NOW()
   )`,
+  `ALTER TABLE pantry_items ADD COLUMN IF NOT EXISTS family_key TEXT`,
 
   `CREATE TABLE IF NOT EXISTS planner_defaults (
     id                    SERIAL PRIMARY KEY,
@@ -174,6 +176,7 @@ const tables = [
   `CREATE INDEX IF NOT EXISTS items_normalized_name_idx ON receipt_items(normalized_name)`,
   `CREATE INDEX IF NOT EXISTS items_own_brand_idx ON receipt_items(is_own_brand)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS pantry_items_normalized_name_idx ON pantry_items(normalized_name)`,
+  `CREATE INDEX IF NOT EXISTS pantry_items_family_key_idx ON pantry_items(family_key)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS meal_plans_week_idx ON meal_plans(week_saturday)`,
 
   `CREATE OR REPLACE FUNCTION get_week_saturday(d DATE)
