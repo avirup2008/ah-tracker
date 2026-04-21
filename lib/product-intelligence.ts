@@ -1,6 +1,7 @@
 import sql from './db.ts'
 import { normalizeItemName } from './normalization.ts'
 import type { AhDeal } from './db.ts'
+import { buildFamilyKey, buildProductCatalog, extractPackSignature, type ProductCatalogEntry } from './product-catalog.ts'
 
 export interface ProductInsight {
   name: string
@@ -48,12 +49,6 @@ function tokenize(value: string): string[] {
     .toLowerCase()
     .split(/[^a-z0-9]+/i)
     .filter((token) => token.length >= 3)
-}
-
-function baseProductKey(value: string): string {
-  const stopwords = new Set(['ah', 'albert', 'heijn'])
-  const tokens = tokenize(normalizeItemName(value)).filter((token) => !stopwords.has(token))
-  return tokens.slice(0, 4).join(' ')
 }
 
 export async function getProductIntelligence(limit = 12): Promise<ProductInsight[]> {
@@ -139,17 +134,24 @@ export async function getProductIntelligence(limit = 12): Promise<ProductInsight
   })
 }
 
+export async function getProductCatalog(limit = 250): Promise<ProductCatalogEntry[]> {
+  return buildProductCatalog(await getProductIntelligence(limit))
+}
+
 export function recommendDealsForProducts(deals: AhDeal[], products: ProductInsight[], limit = 6): DealRecommendation[] {
   const recommendations: DealRecommendation[] = []
+  const catalog = buildProductCatalog(products)
 
   for (const deal of deals) {
     const normalizedDeal = deal.normalized_name ?? normalizeItemName(deal.name)
     const dealTokens = tokenize(normalizedDeal)
+    const dealFamilyKey = buildFamilyKey(deal.name)
+    const dealPack = extractPackSignature(deal.name)
 
-    let bestMatch: { product: ProductInsight; score: number; match_type: 'exact' | 'partial' } | null = null
+    let bestMatch: { product: ProductCatalogEntry; score: number; match_type: 'exact' | 'partial' } | null = null
 
-    for (const product of products) {
-      const normalizedProduct = normalizeItemName(product.name)
+    for (const product of catalog) {
+      const normalizedProduct = normalizeItemName(product.canonical_name)
       let score = 0
       let matchType: 'exact' | 'partial' | null = null
 
@@ -157,9 +159,12 @@ export function recommendDealsForProducts(deals: AhDeal[], products: ProductInsi
         score = 100
         matchType = 'exact'
       } else {
-        const productTokens = tokenize(normalizedProduct)
+        const productTokens = tokenize(product.family_key || normalizedProduct)
         const overlap = productTokens.filter((token) => dealTokens.includes(token))
-        if (overlap.length >= 2 || (overlap.length >= 1 && normalizedDeal.includes(normalizedProduct))) {
+        if (product.family_key === dealFamilyKey) {
+          score = 88
+          matchType = 'exact'
+        } else if (overlap.length >= 2 || (overlap.length >= 1 && normalizedDeal.includes(normalizedProduct))) {
           score = overlap.length * 18
           matchType = 'partial'
         }
@@ -167,6 +172,12 @@ export function recommendDealsForProducts(deals: AhDeal[], products: ProductInsi
 
       if (!matchType) continue
 
+      if (product.category && deal.category && product.category === deal.category) {
+        score += 16
+      }
+      if (dealPack && product.pack_signature && dealPack === product.pack_signature) {
+        score += 8
+      }
       score += product.purchase_count * 6
       score += Math.min(20, Math.round(product.total_spend / 5))
 
@@ -179,7 +190,7 @@ export function recommendDealsForProducts(deals: AhDeal[], products: ProductInsi
 
     recommendations.push({
       ...deal,
-      matched_product: bestMatch.product.name,
+      matched_product: bestMatch.product.canonical_name,
       match_type: bestMatch.match_type,
       recommendation: bestMatch.score >= 110 ? 'buy_now' : 'good_if_needed',
       score: bestMatch.score,
@@ -192,14 +203,14 @@ export function recommendDealsForProducts(deals: AhDeal[], products: ProductInsi
 }
 
 export async function buildSubstitutionRecommendations(limit = 12): Promise<ProductSubstitution[]> {
-  const products = await getProductIntelligence(250)
+  const products = await getProductCatalog(250)
   const ownBrand = products.filter((product) => product.is_own_brand && product.avg_unit_price !== null)
   const aBrand = products.filter((product) => !product.is_own_brand && product.avg_unit_price !== null)
 
   const substitutions: ProductSubstitution[] = []
 
   for (const source of aBrand) {
-    const sourceKey = baseProductKey(source.name)
+    const sourceKey = source.family_key
     if (!sourceKey || source.avg_unit_price === null) continue
 
     let best: ProductSubstitution | null = null
@@ -208,7 +219,7 @@ export async function buildSubstitutionRecommendations(limit = 12): Promise<Prod
       if (target.avg_unit_price === null) continue
       if (target.category !== source.category) continue
 
-      const targetKey = baseProductKey(target.name)
+      const targetKey = target.family_key
       if (!targetKey) continue
 
       const sourceTokens = sourceKey.split(' ').filter(Boolean)
@@ -227,11 +238,11 @@ export async function buildSubstitutionRecommendations(limit = 12): Promise<Prod
       const score = Math.round((tokenCoverage * 100) + (source.purchase_count * 4) + Math.min(20, annualSaving))
 
       const candidate: ProductSubstitution = {
-        source_name: source.name,
+        source_name: source.canonical_name,
         source_category: source.category,
         source_avg_price: source.avg_unit_price,
         source_purchase_count: source.purchase_count,
-        target_name: target.name,
+        target_name: target.canonical_name,
         target_category: target.category,
         target_avg_price: target.avg_unit_price,
         target_purchase_count: target.purchase_count,
