@@ -441,11 +441,11 @@ body {
 }
 
 /* ── Section scroll offset (clears sticky header + section nav) ── */
-[id="overview"], [id="inflation"], [id="brand"], [id="waste"], [id="seasonality"], [id="forecast"] {
+[id="overview"], [id="inflation"], [id="brand"], [id="brand-switch"], [id="product-catalog"], [id="waste"], [id="seasonality"], [id="forecast"] {
   scroll-margin-top: 120px; /* header 62px + section-nav ~44px + breathing room */
 }
 @media (max-width: 768px) {
-  [id="overview"], [id="inflation"], [id="brand"], [id="waste"], [id="seasonality"], [id="forecast"] {
+  [id="overview"], [id="inflation"], [id="brand"], [id="brand-switch"], [id="product-catalog"], [id="waste"], [id="seasonality"], [id="forecast"] {
     scroll-margin-top: 110px;
   }
 }

@@ -12,6 +12,7 @@ const SECTIONS = [
   { id: 'overview',   label: '📊 Overview'    },
   { id: 'inflation',  label: '📈 Inflation'   },
   { id: 'brand-switch', label: '🔄 Brand Switch' },
+  { id: 'product-catalog', label: '🧾 Product Families' },
   { id: 'waste',      label: '🗑️ Waste'       },
   { id: 'seasonality',label: '🌡️ Seasonality' },
   { id: 'forecast',   label: '🔮 Forecast'    },
@@ -79,6 +80,7 @@ export default function AnalysisPage() {
   const inflat = data.inflation ?? []
   const brand  = data.brandSwitch ?? []
   const substitutions = data.substitutions ?? []
+  const productCatalog = data.productCatalog ?? []
   const waste  = data.waste ?? []
   const season = data.seasonality ?? []
   const fc     = data.forecast ?? {}
@@ -338,7 +340,78 @@ export default function AnalysisPage() {
       <div className="section-divider" />
 
       {/* ════════════════════════════════════════════════════════
-          SECTION 4 — WASTE
+          SECTION 4 — PRODUCT CATALOG
+      ════════════════════════════════════════════════════════ */}
+      <div id="product-catalog" ref={el => { sectionRefs.current['product-catalog'] = el }}>
+        <div className="section-header">
+          <div className="section-accent" style={{ background:'var(--primary)' }} />
+          <div className="section-title">Product Families</div>
+        </div>
+
+        <div className="so-what info" style={{ marginBottom:14 }}>
+          Canonical product families collapse aliases like different AH name variants and pack labels into one record.
+          This improves substitution matching, deals, and long-term price tracking.
+        </div>
+
+        <div className="card">
+          {productCatalog.length === 0 ? (
+            <div style={{ padding:20 }}>
+              <EmptyState title="Product catalog" desc="Groups aliases into canonical product families with category, own-brand, aliases, and price signals." />
+            </div>
+          ) : (
+            <div className="overflow-x-auto -mx-1"><table className="data-table" style={{ minWidth: 640 }}>
+              <thead>
+                <tr>
+                  {['Canonical product', 'Category', 'Aliases', 'Trips', 'Avg unit', 'Trend', 'Brand'].map((header) => (
+                    <th key={header}>{header}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {productCatalog.map((item: {
+                  canonical_name: string
+                  category: string | null
+                  aliases: string[]
+                  purchase_count: number
+                  avg_unit_price: number | null
+                  price_change_pct: number | null
+                  is_own_brand: boolean
+                }, i: number) => (
+                  <tr key={`${item.canonical_name}-${i}`}>
+                    <td style={{ color: 'var(--text)', fontWeight: 500, fontFamily: 'var(--font-body)', maxWidth: 220 }}>{item.canonical_name}</td>
+                    <td style={{ color: 'var(--text-3)', fontSize: 11 }}>{catLabel(item.category)}</td>
+                    <td style={{ maxWidth: 180, fontSize: 11, color: 'var(--text-4)' }}>
+                      {item.aliases.slice(0, 3).join(', ')}
+                      {item.aliases.length > 3 ? ` +${item.aliases.length - 3}` : ''}
+                    </td>
+                    <td className="mono">{item.purchase_count}×</td>
+                    <td className="mono">{item.avg_unit_price ? formatEuro(Number(item.avg_unit_price)) : '—'}</td>
+                    <td>
+                      {item.price_change_pct === null ? (
+                        <span className="badge badge-neutral">—</span>
+                      ) : (
+                        <span className={`badge ${item.price_change_pct > 0 ? 'badge-warn' : item.price_change_pct < 0 ? 'badge-good' : 'badge-neutral'}`}>
+                          {item.price_change_pct > 0 ? '+' : ''}{item.price_change_pct}%
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`badge ${item.is_own_brand ? 'badge-good' : 'badge-neutral'}`}>
+                        {item.is_own_brand ? 'AH' : 'A-brand'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table></div>
+          )}
+        </div>
+      </div>
+
+      <div className="section-divider" />
+
+      {/* ════════════════════════════════════════════════════════
+          SECTION 5 — WASTE
       ════════════════════════════════════════════════════════ */}
       <div id="waste" ref={el => { sectionRefs.current.waste = el }}>
         <div className="section-header">
@@ -391,7 +464,7 @@ export default function AnalysisPage() {
       <div className="section-divider" />
 
       {/* ════════════════════════════════════════════════════════
-          SECTION 5 — SEASONALITY
+          SECTION 6 — SEASONALITY
       ════════════════════════════════════════════════════════ */}
       <div id="seasonality" ref={el => { sectionRefs.current.seasonality = el }}>
         <div className="section-header">
@@ -415,7 +488,7 @@ export default function AnalysisPage() {
       <div className="section-divider" />
 
       {/* ════════════════════════════════════════════════════════
-          SECTION 6 — FORECAST
+          SECTION 7 — FORECAST
       ════════════════════════════════════════════════════════ */}
       <div id="forecast" ref={el => { sectionRefs.current.forecast = el }}>
         <div className="section-header">

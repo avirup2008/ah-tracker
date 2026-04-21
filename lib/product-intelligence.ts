@@ -34,7 +34,8 @@ export interface ProductSubstitution {
   target_purchase_count: number
   estimated_saving_per_buy: number
   estimated_annual_saving: number
-  confidence: 'high' | 'medium'
+  confidence: 'high' | 'medium' | 'low'
+  pack_match: 'exact' | 'different' | 'unknown'
   score: number
 }
 
@@ -202,8 +203,10 @@ export function recommendDealsForProducts(deals: AhDeal[], products: ProductInsi
     .slice(0, limit)
 }
 
-export async function buildSubstitutionRecommendations(limit = 12): Promise<ProductSubstitution[]> {
-  const products = await getProductCatalog(250)
+export function buildSubstitutionRecommendationsFromCatalog(
+  products: ProductCatalogEntry[],
+  limit = 12
+): ProductSubstitution[] {
   const ownBrand = products.filter((product) => product.is_own_brand && product.avg_unit_price !== null)
   const aBrand = products.filter((product) => !product.is_own_brand && product.avg_unit_price !== null)
 
@@ -225,6 +228,10 @@ export async function buildSubstitutionRecommendations(limit = 12): Promise<Prod
       const sourceTokens = sourceKey.split(' ').filter(Boolean)
       const targetTokens = targetKey.split(' ').filter(Boolean)
       const overlap = sourceTokens.filter((token) => targetTokens.includes(token))
+      const packMatch: ProductSubstitution['pack_match'] =
+        source.pack_signature && target.pack_signature
+          ? (source.pack_signature === target.pack_signature ? 'exact' : 'different')
+          : 'unknown'
 
       if (overlap.length === 0) continue
       if (target.avg_unit_price >= source.avg_unit_price) continue
@@ -235,7 +242,8 @@ export async function buildSubstitutionRecommendations(limit = 12): Promise<Prod
       const savingPerBuy = Math.round((source.avg_unit_price - target.avg_unit_price) * 100) / 100
       const annualizedTrips = source.purchase_count * (52 / 16)
       const annualSaving = Math.round(savingPerBuy * annualizedTrips * 100) / 100
-      const score = Math.round((tokenCoverage * 100) + (source.purchase_count * 4) + Math.min(20, annualSaving))
+      const packBonus = packMatch === 'exact' ? 15 : packMatch === 'different' ? -12 : 0
+      const score = Math.round((tokenCoverage * 100) + (source.purchase_count * 4) + Math.min(20, annualSaving) + packBonus)
 
       const candidate: ProductSubstitution = {
         source_name: source.canonical_name,
@@ -248,7 +256,12 @@ export async function buildSubstitutionRecommendations(limit = 12): Promise<Prod
         target_purchase_count: target.purchase_count,
         estimated_saving_per_buy: savingPerBuy,
         estimated_annual_saving: annualSaving,
-        confidence: tokenCoverage >= 0.8 ? 'high' : 'medium',
+        confidence: packMatch === 'different'
+          ? 'low'
+          : tokenCoverage >= 0.8
+            ? 'high'
+            : 'medium',
+        pack_match: packMatch,
         score,
       }
 
@@ -263,4 +276,8 @@ export async function buildSubstitutionRecommendations(limit = 12): Promise<Prod
   return substitutions
     .sort((a, b) => b.estimated_annual_saving - a.estimated_annual_saving || b.score - a.score)
     .slice(0, limit)
+}
+
+export async function buildSubstitutionRecommendations(limit = 12): Promise<ProductSubstitution[]> {
+  return buildSubstitutionRecommendationsFromCatalog(await getProductCatalog(250), limit)
 }

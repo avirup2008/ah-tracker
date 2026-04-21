@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
-import { buildSubstitutionRecommendations } from '@/lib/product-intelligence'
+import { buildSubstitutionRecommendations, getProductCatalog } from '@/lib/product-intelligence'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -129,6 +129,7 @@ export async function GET(req: NextRequest) {
       `
       data.switchItems = plain(switchRows)
       data.substitutions = await buildSubstitutionRecommendations(12)
+      data.productCatalog = (await getProductCatalog(80)).slice(0, 12)
     }
 
     // ── C: Waste predictor ─────────────────────────────────────
