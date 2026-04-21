@@ -39,6 +39,16 @@ export interface ProductSubstitution {
   score: number
 }
 
+export interface InflationInsight {
+  clean_name: string
+  category: string | null
+  purchase_count: number
+  first_price: number
+  latest_price: number
+  pct_change: number | null
+  aliases: string[]
+}
+
 function toNumber(value: unknown): number | null {
   if (value == null) return null
   const parsed = Number(value)
@@ -137,6 +147,33 @@ export async function getProductIntelligence(limit = 12): Promise<ProductInsight
 
 export async function getProductCatalog(limit = 250): Promise<ProductCatalogEntry[]> {
   return buildProductCatalog(await getProductIntelligence(limit))
+}
+
+export async function getInflationInsights(limit = 20): Promise<InflationInsight[]> {
+  const catalog = await getProductCatalog(Math.max(limit * 4, 80))
+
+  return catalog
+    .filter((entry) =>
+      entry.first_unit_price !== null &&
+      entry.latest_unit_price !== null &&
+      entry.purchase_count >= 3
+    )
+    .map((entry) => ({
+      clean_name: entry.canonical_name,
+      category: entry.category,
+      purchase_count: entry.purchase_count,
+      first_price: Number(entry.first_unit_price),
+      latest_price: Number(entry.latest_unit_price),
+      pct_change: entry.first_unit_price && entry.latest_unit_price
+        ? Math.round(((entry.latest_unit_price - entry.first_unit_price) / entry.first_unit_price) * 100)
+        : null,
+      aliases: entry.aliases,
+    }))
+    .sort((a, b) =>
+      Math.abs(b.pct_change ?? 0) - Math.abs(a.pct_change ?? 0) ||
+      b.purchase_count - a.purchase_count
+    )
+    .slice(0, limit)
 }
 
 export function recommendDealsForProducts(deals: AhDeal[], products: ProductInsight[], limit = 6): DealRecommendation[] {

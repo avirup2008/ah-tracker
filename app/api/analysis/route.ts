@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
-import { buildSubstitutionRecommendations, getProductCatalog } from '@/lib/product-intelligence'
+import { buildSubstitutionRecommendations, getInflationInsights, getProductCatalog } from '@/lib/product-intelligence'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -25,58 +25,7 @@ export async function GET(req: NextRequest) {
 
     // ── A: Inflation ───────────────────────────────────────────
     if (feature === 'all' || feature === 'inflation') {
-      const rows = await sql`
-        WITH purchase_counts AS (
-          SELECT
-            ${ITEM_NAME_SQL} AS item_name,
-            COUNT(DISTINCT ri.receipt_id)        AS purchase_count
-          FROM receipt_items ri
-          JOIN receipts r ON ri.receipt_id = r.id
-          WHERE ri.unit_price IS NOT NULL AND r.parsed = true
-            AND ri.raw_name NOT IN ('SUBTOTAAL','KOOPZEGELS')
-            AND ri.is_statiegeld = false AND ri.is_koopzegel = false
-          GROUP BY ${ITEM_NAME_SQL}
-          HAVING COUNT(DISTINCT ri.receipt_id) >= 3
-        ),
-        item_prices AS (
-          SELECT
-            ${ITEM_NAME_SQL} AS item_name,
-            ri.category,
-            ri.unit_price,
-            r.receipt_date,
-            ROW_NUMBER() OVER (
-              PARTITION BY ${ITEM_NAME_SQL}
-              ORDER BY r.receipt_date ASC
-            ) AS rn_asc,
-            ROW_NUMBER() OVER (
-              PARTITION BY ${ITEM_NAME_SQL}
-              ORDER BY r.receipt_date DESC
-            ) AS rn_desc
-          FROM receipt_items ri
-          JOIN receipts r ON ri.receipt_id = r.id
-          JOIN purchase_counts pc ON ${ITEM_NAME_SQL} = pc.item_name
-          WHERE ri.unit_price IS NOT NULL AND r.parsed = true
-            AND ri.raw_name NOT IN ('SUBTOTAAL','KOOPZEGELS')
-            AND ri.is_statiegeld = false AND ri.is_koopzegel = false
-        )
-        SELECT
-          ip.item_name     AS clean_name,
-          ip.category,
-          pc.purchase_count,
-          MAX(CASE WHEN ip.rn_asc  = 1 THEN ip.unit_price END) AS first_price,
-          MAX(CASE WHEN ip.rn_desc = 1 THEN ip.unit_price END) AS latest_price
-        FROM item_prices ip
-        JOIN purchase_counts pc ON ip.item_name = pc.item_name
-        GROUP BY ip.item_name, ip.category, pc.purchase_count
-        ORDER BY pc.purchase_count DESC
-        LIMIT 20
-      `
-      data.inflation = plain(rows).map((row: Record<string, unknown>) => ({
-        ...row,
-        pct_change: row.first_price && row.latest_price
-          ? Math.round(((Number(row.latest_price) - Number(row.first_price)) / Number(row.first_price)) * 100)
-          : null,
-      }))
+      data.inflation = await getInflationInsights(20)
     }
 
     // ── B: Brand switching ─────────────────────────────────────

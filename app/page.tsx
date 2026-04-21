@@ -13,6 +13,7 @@ import { AutomationCenter } from '@/components/dashboard/AutomationCenter'
 import { reconcileMealPlan } from '@/lib/reconciliation'
 import { getAutomationStatus, listAutomationStatusesWithDefinitions } from '@/lib/automation-status'
 import { MONTHLY_TARGET, WEEKLY_BUDGET } from '@/lib/budget-constants'
+import { getInflationInsights } from '@/lib/product-intelligence'
 
 export const revalidate = 0
 export const fetchCache = 'force-no-store'
@@ -23,8 +24,6 @@ function plain(rows: any[]): any[] {
     v instanceof Date ? v.toISOString().slice(0,10) : v
   ))
 }
-
-const ITEM_NAME_SQL = sql`COALESCE(ri.normalized_name, ri.clean_name, ri.raw_name)`
 
 async function getDashboardData() {
   const now = new Date()
@@ -85,56 +84,7 @@ async function getDashboardData() {
           AND ri.category IS NOT NULL
         GROUP BY ri.category ORDER BY total DESC LIMIT 7
       `,
-      sql`
-        WITH purchase_counts AS (
-          SELECT
-            ${ITEM_NAME_SQL} AS item_name,
-            COUNT(DISTINCT ri.receipt_id) AS purchase_count
-          FROM receipt_items ri
-          JOIN receipts r ON ri.receipt_id = r.id
-          WHERE ri.unit_price IS NOT NULL
-            AND r.parsed = true
-            AND ri.raw_name NOT IN ('SUBTOTAAL', 'KOOPZEGELS')
-            AND ri.is_statiegeld = false
-            AND ri.is_koopzegel = false
-          GROUP BY ${ITEM_NAME_SQL}
-          HAVING COUNT(DISTINCT ri.receipt_id) >= 3
-        ),
-        item_prices AS (
-          SELECT
-            ${ITEM_NAME_SQL} AS item_name,
-            ri.category,
-            ri.unit_price,
-            r.receipt_date,
-            ROW_NUMBER() OVER (
-              PARTITION BY ${ITEM_NAME_SQL}
-              ORDER BY r.receipt_date ASC
-            ) AS rn_asc,
-            ROW_NUMBER() OVER (
-              PARTITION BY ${ITEM_NAME_SQL}
-              ORDER BY r.receipt_date DESC
-            ) AS rn_desc
-          FROM receipt_items ri
-          JOIN receipts r ON ri.receipt_id = r.id
-          JOIN purchase_counts pc ON ${ITEM_NAME_SQL} = pc.item_name
-          WHERE ri.unit_price IS NOT NULL
-            AND r.parsed = true
-            AND ri.raw_name NOT IN ('SUBTOTAAL', 'KOOPZEGELS')
-            AND ri.is_statiegeld = false
-            AND ri.is_koopzegel = false
-        )
-        SELECT
-          ip.item_name AS clean_name,
-          ip.category,
-          pc.purchase_count,
-          MAX(CASE WHEN ip.rn_asc = 1 THEN ip.unit_price END) AS first_price,
-          MAX(CASE WHEN ip.rn_desc = 1 THEN ip.unit_price END) AS latest_price
-        FROM item_prices ip
-        JOIN purchase_counts pc ON ip.item_name = pc.item_name
-        GROUP BY ip.item_name, ip.category, pc.purchase_count
-        ORDER BY pc.purchase_count DESC
-        LIMIT 6
-      `,
+      getInflationInsights(6),
       sql`SELECT COUNT(*) AS count FROM receipts`,
     ])
 
