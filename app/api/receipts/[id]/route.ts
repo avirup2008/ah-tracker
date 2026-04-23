@@ -71,6 +71,10 @@ function parseOptionalBtwRate(value: unknown): number | null {
   return rate === 9 || rate === 21 ? rate : null
 }
 
+function isIgnoredReceiptItem(rawName: string): boolean {
+  return rawName.trim().toUpperCase() === 'SUBTOTAAL'
+}
+
 function parseReceiptDateInput(value: unknown): { date: Date; receiptDate: string } | null {
   const raw = parseOptionalString(value)
   if (!raw) return null
@@ -93,6 +97,7 @@ function sanitizeItems(items: unknown): ReceiptItemInput[] {
     const entry = item as Record<string, unknown>
     const rawName = parseOptionalString(entry.raw_name)
     if (!rawName) return []
+    if (isIgnoredReceiptItem(rawName)) return []
 
     const quantity = Math.max(0, parseNumber(entry.quantity, 1))
     const unitPrice = Math.max(0, parseNumber(entry.unit_price, 0))
@@ -137,6 +142,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
         SELECT *
         FROM receipt_items
         WHERE receipt_id = ${receiptId}
+          AND raw_name <> 'SUBTOTAAL'
         ORDER BY id ASC
       `,
     ])

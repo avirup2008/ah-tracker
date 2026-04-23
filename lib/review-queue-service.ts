@@ -49,6 +49,7 @@ export async function fetchReviewQueue(limit = 30): Promise<ReviewQueueItem[]> {
         SUM(CASE WHEN clean_name IS NULL THEN 1 ELSE 0 END) AS missing_clean_names,
         SUM(CASE WHEN btw_rate IS NULL THEN 1 ELSE 0 END) AS unknown_btw
       FROM receipt_items
+      WHERE raw_name <> 'SUBTOTAAL'
       GROUP BY receipt_id
     )
     SELECT
