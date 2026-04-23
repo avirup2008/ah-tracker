@@ -31,6 +31,11 @@ test.describe('app smoke', () => {
 
     await expect(page.getByText(/All Receipts \(\d+\)/)).toBeVisible()
     await expect(page.getByRole('button', { name: 'Parse All Pending' })).toBeVisible()
+    await expect(page.getByText('Bulk Actions')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Retry Parse Selected' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'AI Categorise Selected' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Delete Selected' })).toBeVisible()
+    await expect(page.getByLabel('Select all receipts')).toBeVisible()
     await expect(page.getByText('Receipt Review')).toBeVisible()
   })
 })

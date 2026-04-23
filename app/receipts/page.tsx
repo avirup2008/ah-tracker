@@ -96,6 +96,9 @@ export default function ReceiptsPage() {
   const [retryingParse, setRetryingParse] = useState(false)
   const [categorisingItems, setCategorisingItems] = useState(false)
   const [deletingReceipt, setDeletingReceipt] = useState(false)
+  const [selectedReceiptIds, setSelectedReceiptIds] = useState<number[]>([])
+  const [bulkActing, setBulkActing] = useState(false)
+  const [bulkMsg, setBulkMsg] = useState<string | null>(null)
   const [editorMsg, setEditorMsg] = useState<string | null>(null)
   const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([])
 
@@ -137,6 +140,7 @@ export default function ReceiptsPage() {
         dateMax,
         avgPerWeek: weeksSpanned > 0 ? totalSpend / weeksSpanned : 0,
       })
+      setSelectedReceiptIds((current) => current.filter((id) => all.some((receipt) => receipt.id === id)))
     } finally {
       setLoading(false)
     }
@@ -236,6 +240,99 @@ export default function ReceiptsPage() {
     } finally {
       setParsingPending(false)
     }
+  }
+
+  const toggleReceiptSelection = (receiptId: number, checked: boolean) => {
+    setSelectedReceiptIds((current) => checked
+      ? current.includes(receiptId) ? current : [...current, receiptId]
+      : current.filter((id) => id !== receiptId)
+    )
+  }
+
+  const toggleSelectAllReceipts = (checked: boolean) => {
+    setSelectedReceiptIds(checked ? receipts.map((receipt) => receipt.id) : [])
+  }
+
+  const runBulkAction = async (
+    actionLabel: string,
+    runner: (receiptId: number) => Promise<{ ok: boolean; message?: string }>
+  ) => {
+    if (selectedReceiptIds.length === 0) {
+      setBulkMsg('Select at least one receipt first.')
+      return
+    }
+
+    setBulkActing(true)
+    setBulkMsg(`${actionLabel} 0/${selectedReceiptIds.length}…`)
+
+    let successCount = 0
+    let failureCount = 0
+
+    for (const [index, receiptId] of selectedReceiptIds.entries()) {
+      setBulkMsg(`${actionLabel} ${index}/${selectedReceiptIds.length}…`)
+      try {
+        const result = await runner(receiptId)
+        if (result.ok) {
+          successCount += 1
+        } else {
+          failureCount += 1
+        }
+      } catch {
+        failureCount += 1
+      }
+    }
+
+    setBulkMsg(`${actionLabel} complete: ${successCount} succeeded${failureCount ? `, ${failureCount} failed` : ''}.`)
+    setBulkActing(false)
+    setSelectedReceiptIds([])
+    await fetchReceipts()
+  }
+
+  const bulkRetryParse = async () => {
+    await runBulkAction('Retrying parse', async (receiptId) => {
+      const res = await fetch('/api/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receiptIds: [receiptId], force: true }),
+      })
+      const data = await res.json()
+      const result = data.results?.[0]
+      return {
+        ok: res.ok && result?.status === 'parsed',
+        message: result?.message,
+      }
+    })
+  }
+
+  const bulkCategorise = async () => {
+    await runBulkAction('Categorising', async (receiptId) => {
+      const res = await fetch(`/api/receipts/${receiptId}/categorise`, { method: 'POST' })
+      const data = await res.json()
+      return {
+        ok: res.ok && Number(data.updated ?? 0) >= 0,
+        message: data.message,
+      }
+    })
+  }
+
+  const bulkDelete = async () => {
+    if (selectedReceiptIds.length === 0) {
+      setBulkMsg('Select at least one receipt first.')
+      return
+    }
+
+    const confirmed = window.confirm(`Delete ${selectedReceiptIds.length} selected receipt${selectedReceiptIds.length === 1 ? '' : 's'} permanently?`)
+    if (!confirmed) return
+
+    await runBulkAction('Deleting', async (receiptId) => {
+      const res = await fetch(`/api/receipts/${receiptId}`, { method: 'DELETE' })
+      if (selectedId === receiptId) {
+        setSelectedId(null)
+        setDetail(null)
+        setEditorMsg(null)
+      }
+      return { ok: res.ok }
+    })
   }
 
   const updateReceiptField = (field: keyof Receipt, value: string | number | null) => {
@@ -407,6 +504,8 @@ export default function ReceiptsPage() {
     !item.is_koopzegel &&
     (!item.clean_name || !item.category || item.btw_rate === null)
   ).length ?? 0
+  const allVisibleSelected = receipts.length > 0 && selectedReceiptIds.length === receipts.length
+  const someVisibleSelected = selectedReceiptIds.length > 0
 
   return (
     <div className="flex flex-col gap-5">
@@ -452,6 +551,41 @@ export default function ReceiptsPage() {
             <button className="btn-ghost" onClick={fetchReceipts} style={{ fontSize: 11 }}>↻ Refresh</button>
           </div>
 
+          <div
+            className="rounded-[var(--radius-sm)] border p-3"
+            style={{ background: 'var(--surface2)', borderColor: 'var(--border)', marginBottom: 14 }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+              <div>
+                <div className="card-label" style={{ marginBottom: 2 }}>Bulk Actions</div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)' }}>
+                  {selectedReceiptIds.length} selected
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className="btn-ghost" style={{ fontSize: 11 }} onClick={bulkRetryParse} disabled={bulkActing || selectedReceiptIds.length === 0}>
+                  Retry Parse Selected
+                </button>
+                <button className="btn-ghost" style={{ fontSize: 11 }} onClick={bulkCategorise} disabled={bulkActing || selectedReceiptIds.length === 0}>
+                  AI Categorise Selected
+                </button>
+                <button
+                  className="btn-ghost"
+                  style={{ fontSize: 11, color: 'var(--warn)', borderColor: 'color-mix(in srgb, var(--warn) 35%, var(--border))' }}
+                  onClick={bulkDelete}
+                  disabled={bulkActing || selectedReceiptIds.length === 0}
+                >
+                  Delete Selected
+                </button>
+              </div>
+            </div>
+            {bulkMsg && (
+              <div style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)', marginTop: 10 }}>
+                {bulkMsg}
+              </div>
+            )}
+          </div>
+
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[1, 2, 3, 4, 5].map((index) => (
@@ -471,6 +605,17 @@ export default function ReceiptsPage() {
               <table className="data-table" style={{ minWidth: 520 }}>
                 <thead>
                   <tr>
+                    <th style={{ width: 38 }}>
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        ref={(input) => {
+                          if (input) input.indeterminate = someVisibleSelected && !allVisibleSelected
+                        }}
+                        onChange={(event) => toggleSelectAllReceipts(event.target.checked)}
+                        aria-label="Select all receipts"
+                      />
+                    </th>
                     {['Date', 'Store', 'Items', 'Spend', 'Bonus saved', 'Status'].map((heading) => (
                       <th key={heading}>{heading}</th>
                     ))}
@@ -486,6 +631,14 @@ export default function ReceiptsPage() {
                         background: selectedId === receipt.id ? 'var(--surface2)' : undefined,
                       }}
                     >
+                      <td onClick={(event) => event.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedReceiptIds.includes(receipt.id)}
+                          onChange={(event) => toggleReceiptSelection(receipt.id, event.target.checked)}
+                          aria-label={`Select receipt ${receipt.id}`}
+                        />
+                      </td>
                       <td style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>
                         {formatDate(receipt.receipt_date, 'EEE d MMM yyyy')}
                       </td>
