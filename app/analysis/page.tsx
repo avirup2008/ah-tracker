@@ -22,6 +22,7 @@ export default function AnalysisPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData]     = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [active, setActive]  = useState('overview')
   const { theme } = useTheme()
   const isDark  = theme === 'dark'
@@ -35,8 +36,19 @@ export default function AnalysisPage() {
 
   useEffect(() => {
     fetch('/api/analysis?feature=all&period=month')
-      .then(r => r.json())
-      .then(setData)
+      .then(async r => {
+        const payload = await r.json()
+        if (!r.ok) throw new Error(payload.error || 'Failed to load analysis')
+        return payload
+      })
+      .then((payload) => {
+        setData(payload)
+        setError(null)
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Failed to load analysis')
+        setData({})
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -73,6 +85,22 @@ export default function AnalysisPage() {
           <div className="skeleton" style={{ height:140, borderRadius:8 }} />
         </div>
       ))}
+    </div>
+  )
+
+  if (error) return (
+    <div className="card p-5">
+      <div className="card-label" style={{ marginBottom: 8, color: 'var(--warn)' }}>Analysis failed to load</div>
+      <p style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginBottom: 14 }}>
+        {error}
+      </p>
+      <button
+        className="btn-ghost"
+        style={{ fontSize: 11 }}
+        onClick={() => window.location.reload()}
+      >
+        Reload analysis
+      </button>
     </div>
   )
 
