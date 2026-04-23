@@ -51,7 +51,6 @@ export function assessReceiptReview(input: ReviewSignalInput): ReviewAssessment 
   const itemsTotal = Number(input.items_total ?? 0)
   const missingCategories = Number(input.missing_categories ?? 0)
   const missingCleanNames = Number(input.missing_clean_names ?? 0)
-  const unknownBtw = Number(input.unknown_btw ?? 0)
 
   if (itemsTotal > 0 && missingCategories > 0) {
     score += Math.min(35, missingCategories * 10)
@@ -61,11 +60,6 @@ export function assessReceiptReview(input: ReviewSignalInput): ReviewAssessment 
   if (itemsTotal > 0 && missingCleanNames > 0) {
     score += Math.min(20, missingCleanNames * 4)
     addReason(reasons, `${missingCleanNames} item${missingCleanNames !== 1 ? 's' : ''} missing clean names`)
-  }
-
-  if (itemsTotal > 0 && unknownBtw > 0) {
-    score += Math.min(15, unknownBtw * 3)
-    addReason(reasons, `${unknownBtw} item${unknownBtw !== 1 ? 's' : ''} missing VAT`)
   }
 
   if (input.parsed && !input.reviewed_at) {

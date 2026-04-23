@@ -34,8 +34,31 @@ test('assessReceiptReview flags parsed receipts with missing classifications', (
   })
 
   assert.equal(result.needs_review, true)
-  assert.equal(result.priority, 'medium')
+  assert.equal(result.priority, 'low')
   assert.ok(result.reasons.some((reason) => reason.includes('uncategorised')))
+})
+
+test('assessReceiptReview ignores missing VAT because it is not actionable', () => {
+  const result = assessReceiptReview({
+    parsed: true,
+    parse_error: null,
+    reviewed_at: '2026-04-23T00:00:00.000Z',
+    store_id: '1251',
+    payment_method: 'Maestro',
+    item_count: 5,
+    total_paid: 12,
+    subtotal: 12,
+    koopzegels: 0,
+    statiegeld: 0,
+    missing_categories: 0,
+    missing_clean_names: 0,
+    unknown_btw: 5,
+    items_total: 5,
+  })
+
+  assert.equal(result.needs_review, false)
+  assert.equal(result.priority, 'none')
+  assert.equal(result.reasons.length, 0)
 })
 
 test('assessReceiptReview ignores receipt total mismatches', () => {
