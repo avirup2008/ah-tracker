@@ -564,6 +564,25 @@ export default function ReceiptsPage() {
                 </div>
               )}
 
+              {detail.receipt.parse_error && (
+                <div
+                  className="rounded-[var(--radius-sm)] border p-3"
+                  style={{
+                    background: 'color-mix(in srgb, var(--warn) 8%, var(--surface2))',
+                    borderColor: 'color-mix(in srgb, var(--warn) 28%, var(--border))',
+                  }}
+                >
+                  <div className="card-label" style={{ marginBottom: 8, color: 'var(--warn)' }}>Parse Error Detail</div>
+                  <p style={{ fontSize: 12, color: 'var(--text)', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginBottom: 10 }}>
+                    {detail.receipt.parse_error}
+                  </p>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)', lineHeight: 1.55 }}>
+                    What to do: if the PDF is an AH receipt, enter the receipt date, total paid, and line items below, then save corrections.
+                    If the PDF is unreadable or not an AH receipt, remove it from tracking or leave it in review.
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Receipt date">
                   <input className="editor-input" type="date" value={String(detail.receipt.receipt_date).slice(0, 10)} onChange={(event) => updateReceiptField('receipt_date', event.target.value)} />
@@ -602,6 +621,13 @@ export default function ReceiptsPage() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 520, overflowY: 'auto', paddingRight: 4 }}>
+                {detail.items.length === 0 && (
+                  <div className="rounded-[var(--radius-sm)] border p-3" style={{ background: 'var(--surface2)', borderColor: 'var(--border)' }}>
+                    <p style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                      No line items were parsed. Add the receipt items manually, or reload after trying parse again.
+                    </p>
+                  </div>
+                )}
                 {detail.items.map((item, index) => (
                   <div key={`${item.id ?? 'new'}-${index}`} className="rounded-[var(--radius-sm)] border p-3" style={{ background: 'var(--surface2)', borderColor: 'var(--border)' }}>
                     <div className="grid grid-cols-2 gap-3">
