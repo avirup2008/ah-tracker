@@ -98,6 +98,7 @@ export interface ShoppingListItem {
     quantity: string
     est_price: number
     bonus_deal: boolean
+    pantry_covered?: boolean
   }[]
 }
 
@@ -114,6 +115,7 @@ export interface AhDeal {
   match_type?: 'exact' | 'partial'
   recommendation?: 'buy_now' | 'good_if_needed'
   score?: number
+  pantry_match?: boolean
 }
 
 export interface PantryItem {

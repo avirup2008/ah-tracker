@@ -686,6 +686,7 @@ export default function MealPlannerPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       {item.bonus_deal && <Tag>Bonus</Tag>}
+                      {item.pantry_covered && <Tag>Pantry</Tag>}
                       <span className="mono" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>{formatEuro(item.est_price)}</span>
                     </div>
                   </div>

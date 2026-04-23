@@ -108,6 +108,23 @@ export async function getPantryItemsForPlanning() {
   return pantryItems
 }
 
+export async function getPantryFamilyKeys() {
+  const rows = await sql`
+    SELECT name, normalized_name, family_key
+    FROM pantry_items
+    ORDER BY updated_at DESC, id DESC
+  `
+
+  return [...new Set(
+    (rows as Record<string, unknown>[])
+      .map((row) =>
+        String(row.family_key ?? '') ||
+        buildFamilyKey(String(row.name ?? row.normalized_name ?? ''))
+      )
+      .filter(Boolean)
+  )]
+}
+
 export async function getPlannerDefaults(): Promise<PlannerDefaults> {
   const rows = await sql`
     SELECT *
@@ -224,6 +241,7 @@ export async function generateAndStoreMealPlan(options: {
   const { deals } = await getCurrentDealsWithCache()
   const stapleProducts = (await getProductIntelligence(10)).map((product) => product.name)
   const pantryItems = await getPantryItemsForPlanning()
+  const pantryFamilyKeys = await getPantryFamilyKeys()
 
   const prevPlans = await sql`
     SELECT meals_json
@@ -267,7 +285,7 @@ export async function generateAndStoreMealPlan(options: {
     budgetStyle: defaults.budget_style,
   })
 
-  const shoppingList = await buildShoppingList(mealPlan, deals)
+  const shoppingList = await buildShoppingList(mealPlan, deals, pantryFamilyKeys)
   const allMeals = [...mealPlan.lunches, ...mealPlan.dinners]
   const estimatedCost = allMeals.reduce((sum, meal) => sum + (meal.estimated_cost ?? 0), 0)
 

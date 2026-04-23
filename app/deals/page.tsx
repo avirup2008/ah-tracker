@@ -134,6 +134,7 @@ export default function DealsPage() {
                         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-body)' }}>{deal.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--text-4)', fontFamily: 'var(--font-body)', marginTop: 3 }}>
                           Matches your purchase history: <strong>{deal.matched_product}</strong>
+                          {deal.pantry_match ? ' · already in pantry' : ''}
                         </div>
                       </div>
                       <span style={{
@@ -142,7 +143,7 @@ export default function DealsPage() {
                         color: deal.recommendation === 'buy_now' ? 'var(--good)' : 'var(--accent)',
                         border: '1px solid var(--border)', fontFamily: 'var(--font-mono)',
                       }}>
-                        {deal.recommendation === 'buy_now' ? 'BUY NOW' : 'GOOD IF NEEDED'}
+                        {deal.pantry_match ? 'PANTRY' : deal.recommendation === 'buy_now' ? 'BUY NOW' : 'GOOD IF NEEDED'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>

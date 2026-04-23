@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { ParsedItem } from './parser'
 import type { MealPlanData, AhDeal, Meal, MealIngredient, ShoppingListItem } from './db'
 import { dedupeAndScoreDeals } from './deal-normalization'
+import { markPantryCoveredShoppingList } from './shopping-list'
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!)
 const MODEL = 'gemini-2.5-flash-lite'
@@ -594,7 +595,11 @@ Respond with ONLY valid JSON, no markdown:
 }
 
 // ─── Shopping list builder ───────────────────────────────────────
-export async function buildShoppingList(mealPlan: MealPlanData, deals: AhDeal[]) {
+export async function buildShoppingList(
+  mealPlan: MealPlanData,
+  deals: AhDeal[],
+  pantryFamilyKeys: string[] = []
+) {
   const allIngredients = [
     ...mealPlan.lunches.flatMap(m => m.ingredients),
     ...mealPlan.dinners.flatMap(m => m.ingredients),
@@ -626,7 +631,7 @@ Respond with ONLY valid JSON array, no markdown:
     throw new Error('Shopping list generation returned no valid items')
   }
 
-  return shoppingList
+  return markPantryCoveredShoppingList(shoppingList, pantryFamilyKeys)
 }
 
 // ─── AH Deals — uses Gemini Google Search grounding ─────────────

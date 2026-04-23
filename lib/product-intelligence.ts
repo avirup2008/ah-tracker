@@ -20,6 +20,7 @@ export interface DealRecommendation extends AhDeal {
   matched_product: string
   match_type: 'exact' | 'partial'
   recommendation: 'buy_now' | 'good_if_needed'
+  pantry_match: boolean
   score: number
 }
 
@@ -176,15 +177,22 @@ export async function getInflationInsights(limit = 20): Promise<InflationInsight
     .slice(0, limit)
 }
 
-export function recommendDealsForProducts(deals: AhDeal[], products: ProductInsight[], limit = 6): DealRecommendation[] {
+export function recommendDealsForProducts(
+  deals: AhDeal[],
+  products: ProductInsight[],
+  limit = 6,
+  pantryFamilyKeys: string[] = []
+): DealRecommendation[] {
   const recommendations: DealRecommendation[] = []
   const catalog = buildProductCatalog(products)
+  const pantryFamilies = new Set(pantryFamilyKeys.filter(Boolean))
 
   for (const deal of deals) {
     const normalizedDeal = deal.normalized_name ?? normalizeItemName(deal.name)
     const dealTokens = tokenize(normalizedDeal)
     const dealFamilyKey = buildFamilyKey(deal.name)
     const dealPack = extractPackSignature(deal.name)
+    const pantryMatch = pantryFamilies.has(dealFamilyKey)
 
     let bestMatch: { product: ProductCatalogEntry; score: number; match_type: 'exact' | 'partial' } | null = null
 
@@ -216,6 +224,9 @@ export function recommendDealsForProducts(deals: AhDeal[], products: ProductInsi
       if (dealPack && product.pack_signature && dealPack === product.pack_signature) {
         score += 8
       }
+      if (pantryMatch) {
+        score -= 35
+      }
       score += product.purchase_count * 6
       score += Math.min(20, Math.round(product.total_spend / 5))
 
@@ -230,7 +241,8 @@ export function recommendDealsForProducts(deals: AhDeal[], products: ProductInsi
       ...deal,
       matched_product: bestMatch.product.canonical_name,
       match_type: bestMatch.match_type,
-      recommendation: bestMatch.score >= 110 ? 'buy_now' : 'good_if_needed',
+      recommendation: !pantryMatch && bestMatch.score >= 110 ? 'buy_now' : 'good_if_needed',
+      pantry_match: pantryMatch,
       score: bestMatch.score,
     })
   }
