@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
-import { parseReceiptText } from '@/lib/parser'
+import { diagnoseReceiptParse, parseReceiptText } from '@/lib/parser'
 import { categoriseItems } from '@/lib/ai'
 import { buildNormalizedItemFields } from '@/lib/normalization'
 
@@ -23,8 +23,10 @@ export async function POST(req: NextRequest) {
     // Parse receipt structure from text
     const parsed = parseReceiptText(rawText, rawText)
     if (!parsed) {
-      await sql`UPDATE receipts SET parse_error='Could not parse structure', updated_at=NOW() WHERE id=${receiptId}`
-      return NextResponse.json({ status: 'parse_error' })
+      const diagnostic = diagnoseReceiptParse(rawText)
+      const error = diagnostic.error ?? 'Could not parse receipt structure'
+      await sql`UPDATE receipts SET parse_error=${error}, updated_at=NOW() WHERE id=${receiptId}`
+      return NextResponse.json({ status: 'parse_error', error, diagnostic })
     }
 
     // Try Gemini categorisation — gracefully skip on rate limit

@@ -579,6 +579,9 @@ export default function ReceiptsPage() {
                   <div style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)', lineHeight: 1.55 }}>
                     What to do: if the PDF is an AH receipt, enter the receipt date, total paid, and line items below, then save corrections.
                     If the PDF is unreadable or not an AH receipt, remove it from tracking or leave it in review.
+                    {detail.receipt.parse_error === 'Could not parse receipt structure' && (
+                      <span> This receipt was parsed before detailed diagnostics were added; retry parsing to see exactly which fields are missing.</span>
+                    )}
                   </div>
                 </div>
               )}

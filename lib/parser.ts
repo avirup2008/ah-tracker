@@ -38,6 +38,18 @@ export interface ParsedReceipt {
   rawText: string
 }
 
+export interface ReceiptParseDiagnostic {
+  ok: boolean
+  error: string | null
+  missing: string[]
+  lineCount: number
+  storeId: string
+  foundDateTime: boolean
+  foundTotalPaid: boolean
+  groceryItemCount: number
+  totalPaid: number
+}
+
 interface ParserState {
   items: ParsedItem[]
   bonusSavings: number
@@ -275,6 +287,36 @@ function buildParsedReceipt(
   }
 }
 
+function buildParseDiagnostic(
+  lines: string[],
+  storeId: string,
+  dateTime: { date: Date; time: string | null } | null,
+  state: ParserState | null
+): ReceiptParseDiagnostic {
+  const groceryItemCount = state?.items.filter((item) => !item.isStatiegeld && !item.isKoopzegel).length ?? 0
+  const totalPaid = state?.totalPaid ?? 0
+  const missing: string[] = []
+
+  if (lines.length === 0) missing.push('readable PDF text')
+  if (!dateTime) missing.push('AH receipt date/time line')
+  if (totalPaid <= 0) missing.push('TOTAAL amount')
+  if (groceryItemCount === 0) missing.push('grocery line items')
+
+  return {
+    ok: missing.length === 0,
+    error: missing.length === 0
+      ? null
+      : `Could not parse receipt structure: missing ${missing.join(', ')}.`,
+    missing,
+    lineCount: lines.length,
+    storeId,
+    foundDateTime: Boolean(dateTime),
+    foundTotalPaid: totalPaid > 0,
+    groceryItemCount,
+    totalPaid,
+  }
+}
+
 /** Derive the preceding Saturday for week grouping */
 export function getWeekSaturday(date: Date): Date {
   const d = new Date(date)
@@ -315,4 +357,12 @@ export function parseReceiptText(text: string, rawText: string): ParsedReceipt |
 
   const state = parseReceiptLines(lines)
   return buildParsedReceipt(storeId, dateTime, state, rawText)
+}
+
+export function diagnoseReceiptParse(text: string): ReceiptParseDiagnostic {
+  const lines = normalizeLines(text)
+  const storeId = extractStoreId(lines)
+  const dateTime = extractDateTime(lines)
+  const state = lines.length > 0 ? parseReceiptLines(lines) : null
+  return buildParseDiagnostic(lines, storeId, dateTime, state)
 }

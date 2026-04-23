@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { getWeekSaturday, parseFilename, parseReceiptText } from '../lib/parser.ts'
+import { diagnoseReceiptParse, getWeekSaturday, parseFilename, parseReceiptText } from '../lib/parser.ts'
 
 const fixturesDir = join(import.meta.dirname, 'fixtures')
 
@@ -71,6 +71,23 @@ test('parseReceiptText handles totals printed on the next line', () => {
 test('parseReceiptText rejects receipts without a valid total', () => {
   const rawText = readFixture('receipt-invalid-missing-total.txt')
   assert.equal(parseReceiptText(rawText, rawText), null)
+
+  const diagnostic = diagnoseReceiptParse(rawText)
+  assert.equal(diagnostic.ok, false)
+  assert.ok(diagnostic.missing.includes('TOTAAL amount'))
+  assert.match(diagnostic.error ?? '', /missing TOTAAL amount/)
+})
+
+test('diagnoseReceiptParse explains empty text failures', () => {
+  const diagnostic = diagnoseReceiptParse('')
+
+  assert.equal(diagnostic.ok, false)
+  assert.deepEqual(diagnostic.missing, [
+    'readable PDF text',
+    'AH receipt date/time line',
+    'TOTAAL amount',
+    'grocery line items',
+  ])
 })
 
 test('parseReceiptText supports item names split across multiple lines', () => {
