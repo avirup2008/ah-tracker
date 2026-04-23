@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
           const diagnostic = diagnoseReceiptParse(rawText)
           const error = diagnostic.error ?? 'Could not parse receipt structure'
           await sql`
-            UPDATE receipts SET parse_error = ${error}, updated_at = NOW()
+            UPDATE receipts SET raw_text = ${rawText}, parse_error = ${error}, updated_at = NOW()
             WHERE id = ${receiptId}
           `
           results.push({ id: receiptId, status: 'parse_error', message: error, diagnostic })

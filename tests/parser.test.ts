@@ -118,6 +118,23 @@ test('parseReceiptText supports AH BONUS NR header and weighted KG lines', () =>
   assert.equal(parsed.totalPaid, 38.49)
 })
 
+test('parseReceiptText supports compact pdf text without spaces', () => {
+  const rawText = readFixture('receipt-compact-pdf-text.txt')
+  const parsed = parseReceiptText(rawText, rawText)
+
+  assert.ok(parsed)
+  assert.equal(formatLocalDate(parsed.date), '2026-04-09')
+  assert.equal(parsed.time, '10:41:00')
+  assert.equal(parsed.itemCount, 4)
+  assert.equal(parsed.statiegeld, 0.5)
+  assert.equal(parsed.koopzegels, 14.6)
+  assert.equal(parsed.totalPaid, 38.74)
+  assert.equal(parsed.items[0]?.rawName, 'COCA-COLA')
+  assert.equal(parsed.items[0]?.isBonusItem, true)
+  assert.equal(parsed.items[3]?.rawName, 'AH ZALMFILET')
+  assert.equal(parsed.items[3]?.quantity, 0.597)
+})
+
 test('parseReceiptText keeps refund lines and flexible koopzegel labels in totals', () => {
   const rawText = readFixture('receipt-return-koopzegels.txt')
   const parsed = parseReceiptText(rawText, rawText)

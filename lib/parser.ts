@@ -82,7 +82,7 @@ function extractStoreId(lines: string[]): string {
 
 function extractDateTime(lines: string[]): { date: Date; time: string | null } | null {
   for (const line of lines) {
-    const dtMatch = line.match(/^(\d{1,2}):(\d{2})\s+(\d{1,2})-(\d{1,2})-(\d{4})$/)
+    const dtMatch = line.match(/^(\d{1,2}):(\d{2})\s*(\d{1,2})-(\d{1,2})-(\d{4})$/)
     if (!dtMatch) continue
 
     const [, hh, mm, dd, mo, yyyy] = dtMatch
@@ -100,7 +100,7 @@ function extractTotalPaid(line: string, nextLine: string | undefined): number | 
     return parseDutchAmount(nextLine)
   }
 
-  const totaalMatch = line.match(/^TOTAAL\s+(\d+,\d{2})$/)
+  const totaalMatch = line.match(/^TOTAAL\s*(\d+,\d{2})$/)
   return totaalMatch ? parseDutchAmount(totaalMatch[1]) : null
 }
 
@@ -112,18 +112,18 @@ function extractPaymentMethod(line: string, current: string | null): string | nu
 }
 
 function extractKoopzegels(line: string): number | null {
-  const koopMatch = line.match(/^\d+\s+KOOPZEGELS(?:\s+.+?)?\s+(\d+,\d{2})$/)
+  const koopMatch = line.match(/^\d+\s*KOOPZEGELS(?:\s*.+?)?\s*(\d+,\d{2})$/)
   return koopMatch ? parseDutchAmount(koopMatch[1]) : null
 }
 
 function extractBonusDiscount(line: string): number | null {
-  if (!line.startsWith('BONUS ') || !line.match(/-\d+,\d{2}$/)) return null
+  if (!line.match(/^(BONUS|BBOX)/) || !line.match(/-\d+,\d{2}$/)) return null
   const bonusMatch = line.match(/(-\d+,\d{2})$/)
   return bonusMatch ? Math.abs(parseDutchAmount(bonusMatch[1])) : null
 }
 
 function extractVoordeelTotal(line: string): number | null {
-  const voordeelMatch = line.match(/^UW VOORDEEL\s+(\d+,\d{2})$/)
+  const voordeelMatch = line.match(/^UW VOORDEEL\s*(\d+,\d{2})$/)
   return voordeelMatch ? parseDutchAmount(voordeelMatch[1]) : null
 }
 
@@ -133,16 +133,44 @@ function extractStatiegeld(line: string): number | null {
   return stMatch ? parseDutchAmount(stMatch[1]) : null
 }
 
+function parseQuantity(value: string): number | null {
+  const weightQtyMatch = value.match(/^(\d+(?:[,.]\d+)?)KG$/i)
+  if (weightQtyMatch) return parseFloat(weightQtyMatch[1].replace(',', '.'))
+  if (/^\d+$/.test(value)) return parseInt(value, 10)
+  return null
+}
+
+function parseCompactItemLine(line: string): ParsedItem | null {
+  const match = line.match(/^(\d+(?:[,.]\d+)?(?:KG)?)(.+?)(-?\d+,\d{2})(?:(-?\d+,\d{2}))?(B+)?$/i)
+  if (!match) return null
+
+  const [, qtyStr, name, firstAmount, secondAmount, bonusFlag] = match
+  const quantity = parseQuantity(qtyStr)
+  if (quantity === null) return null
+
+  const rawName = name.trim()
+  if (!rawName || rawName === 'SUBTOTAAL') return null
+
+  return {
+    rawName,
+    quantity,
+    unitPrice: parseDutchAmount(firstAmount),
+    totalPrice: parseDutchAmount(secondAmount ?? firstAmount),
+    isBonusItem: Boolean(bonusFlag),
+    isStatiegeld: rawName.includes('STATIEGELD'),
+    isKoopzegel: false,
+  }
+}
+
 function parseItemLine(line: string): ParsedItem | null {
   const parts = line.split(/\s+/)
-  if (parts.length < 3) return null
+  if (parts.length < 3) {
+    return parseCompactItemLine(line)
+  }
 
   const qtyStr = parts[0]
-  const weightQtyMatch = qtyStr.match(/^(\d+(?:[,.]\d+)?)KG$/i)
-  if (!/^\d+$/.test(qtyStr) && !weightQtyMatch) return null
-  const quantity = weightQtyMatch
-    ? parseFloat(weightQtyMatch[1].replace(',', '.'))
-    : parseInt(qtyStr, 10)
+  const quantity = parseQuantity(qtyStr)
+  if (quantity === null) return null
 
   const lastToken = parts[parts.length - 1]
   const isBonusItem = lastToken === 'B'
@@ -150,7 +178,7 @@ function parseItemLine(line: string): ParsedItem | null {
   const last = valueParts[valueParts.length - 1]
   const secondLast = valueParts[valueParts.length - 2]
 
-  if (!AMOUNT_RE.test(last)) return null
+  if (!AMOUNT_RE.test(last)) return parseCompactItemLine(line)
 
   let unitPrice: number
   let totalPrice: number
@@ -167,7 +195,7 @@ function parseItemLine(line: string): ParsedItem | null {
   }
 
   const rawName = valueParts.slice(1, nameEnd).join(' ')
-  if (!rawName) return null
+  if (!rawName) return parseCompactItemLine(line)
   if (rawName === 'SUBTOTAAL') return null
 
   return {
@@ -182,13 +210,13 @@ function parseItemLine(line: string): ParsedItem | null {
 }
 
 function startsPotentialItem(line: string): boolean {
-  return /^\d+(?:[,.]\d+)?(?:KG)?\s+/i.test(line)
+  return /^\d+(?:[,.]\d+)?(?:KG)?\s*/i.test(line)
 }
 
 function startsItemSection(line: string): boolean {
   return line.includes('BONUSKAART') ||
     line.includes('AH BONUS NR') ||
-    /^AANTAL\s+OMSCHRIJVING\s+PRIJS\s+BEDRAG$/i.test(line)
+    /^AANTAL\s*OMSCHRIJVING\s*PRIJS\s*BEDRAG$/i.test(line)
 }
 
 function endsItemSection(line: string): boolean {
