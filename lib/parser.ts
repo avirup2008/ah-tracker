@@ -138,8 +138,11 @@ function parseItemLine(line: string): ParsedItem | null {
   if (parts.length < 3) return null
 
   const qtyStr = parts[0]
-  if (!/^\d+$/.test(qtyStr)) return null
-  const quantity = parseInt(qtyStr, 10)
+  const weightQtyMatch = qtyStr.match(/^(\d+(?:[,.]\d+)?)KG$/i)
+  if (!/^\d+$/.test(qtyStr) && !weightQtyMatch) return null
+  const quantity = weightQtyMatch
+    ? parseFloat(weightQtyMatch[1].replace(',', '.'))
+    : parseInt(qtyStr, 10)
 
   const lastToken = parts[parts.length - 1]
   const isBonusItem = lastToken === 'B'
@@ -165,6 +168,7 @@ function parseItemLine(line: string): ParsedItem | null {
 
   const rawName = valueParts.slice(1, nameEnd).join(' ')
   if (!rawName) return null
+  if (rawName === 'SUBTOTAAL') return null
 
   return {
     rawName,
@@ -178,7 +182,18 @@ function parseItemLine(line: string): ParsedItem | null {
 }
 
 function startsPotentialItem(line: string): boolean {
-  return /^\d+\s+/.test(line)
+  return /^\d+(?:[,.]\d+)?(?:KG)?\s+/i.test(line)
+}
+
+function startsItemSection(line: string): boolean {
+  return line.includes('BONUSKAART') ||
+    line.includes('AH BONUS NR') ||
+    /^AANTAL\s+OMSCHRIJVING\s+PRIJS\s+BEDRAG$/i.test(line)
+}
+
+function endsItemSection(line: string): boolean {
+  return /^(\d+\s+)?SUBTOTAAL(?:\s|$)/.test(line) ||
+    line.startsWith('UW VOORDEEL')
 }
 
 function parseReceiptLines(lines: string[]): ParserState {
@@ -196,13 +211,13 @@ function parseReceiptLines(lines: string[]): ParserState {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
 
-    if (line.includes('BONUSKAART')) {
+    if (startsItemSection(line)) {
       state.parsingItems = true
       state.pendingItemLine = null
       continue
     }
 
-    if (line.startsWith('SUBTOTAAL') || line.startsWith('UW VOORDEEL')) {
+    if (endsItemSection(line)) {
       state.parsingItems = false
       state.pendingItemLine = null
     }

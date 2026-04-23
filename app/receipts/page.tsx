@@ -323,7 +323,7 @@ export default function ReceiptsPage() {
       const res = await fetch('/api/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receiptIds: [selectedId] }),
+        body: JSON.stringify({ receiptIds: [selectedId], force: true }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Retry parse failed')

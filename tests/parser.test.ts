@@ -103,6 +103,21 @@ test('parseReceiptText supports item names split across multiple lines', () => {
   assert.equal(parsed.items[1]?.rawName, 'AH BROOD')
 })
 
+test('parseReceiptText supports AH BONUS NR header and weighted KG lines', () => {
+  const rawText = readFixture('receipt-ah-bonus-nr.txt')
+  const parsed = parseReceiptText(rawText, rawText)
+
+  assert.ok(parsed)
+  assert.equal(parsed.storeId, '1251')
+  assert.equal(parsed.itemCount, 4)
+  assert.equal(parsed.items.some((item) => item.rawName === 'SUBTOTAAL'), false)
+  assert.equal(parsed.items[3]?.rawName, 'AH ZALMFILET')
+  assert.equal(parsed.items[3]?.quantity, 0.597)
+  assert.equal(parsed.items[3]?.unitPrice, 25.97)
+  assert.equal(parsed.items[3]?.totalPrice, 15.51)
+  assert.equal(parsed.totalPaid, 38.49)
+})
+
 test('parseReceiptText keeps refund lines and flexible koopzegel labels in totals', () => {
   const rawText = readFixture('receipt-return-koopzegels.txt')
   const parsed = parseReceiptText(rawText, rawText)

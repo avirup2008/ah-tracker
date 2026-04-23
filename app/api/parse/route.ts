@@ -23,7 +23,7 @@ async function fetchPdfBuffer(url: string): Promise<Buffer> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { receiptIds } = await req.json() as { receiptIds: number[] }
+    const { receiptIds, force } = await req.json() as { receiptIds: number[]; force?: boolean }
 
     if (!receiptIds?.length) {
       return NextResponse.json({ error: 'No receipt IDs provided' }, { status: 400 })
@@ -34,10 +34,15 @@ export async function POST(req: NextRequest) {
     for (const receiptId of receiptIds) {
       try {
         // Fetch receipt record
-        const rows = await sql`
-          SELECT id, filename, blob_url FROM receipts
-          WHERE id = ${receiptId} AND parsed = false
-        `
+        const rows = force
+          ? await sql`
+              SELECT id, filename, blob_url FROM receipts
+              WHERE id = ${receiptId}
+            `
+          : await sql`
+              SELECT id, filename, blob_url FROM receipts
+              WHERE id = ${receiptId} AND parsed = false
+            `
         if (!rows.length) {
           results.push({ id: receiptId, status: 'skipped' })
           continue
@@ -67,7 +72,46 @@ export async function POST(req: NextRequest) {
         // Categorise items via Gemini
         const categorised = await categoriseItems(parsed.items)
 
-        // Update receipt record
+        // Insert line items
+        if (parsed.items.length === 0) {
+          throw new Error('Parser returned no line items')
+        }
+
+        // Delete any existing items first (idempotent)
+        await sql`DELETE FROM receipt_items WHERE receipt_id = ${receiptId}`
+
+        for (const item of parsed.items) {
+          const cat = categorised.find(c => c.rawName === item.rawName)
+          const normalized = buildNormalizedItemFields(item.rawName, cat?.cleanName)
+
+          await sql`
+            INSERT INTO receipt_items (
+              receipt_id, quantity, raw_name, clean_name, normalized_name,
+              category, subcategory,
+              unit_price, total_price,
+              is_bonus_item, is_own_brand, is_statiegeld, is_koopzegel,
+              is_non_food, btw_rate
+            ) VALUES (
+              ${receiptId},
+              ${item.quantity},
+              ${item.rawName},
+              ${cat?.cleanName ?? null},
+              ${normalized.normalizedName},
+              ${cat?.category ?? null},
+              ${cat?.subcategory ?? null},
+              ${item.unitPrice},
+              ${item.totalPrice},
+              ${item.isBonusItem},
+              ${normalized.isOwnBrand},
+              ${item.isStatiegeld},
+              ${item.isKoopzegel},
+              ${cat?.isNonFood ?? false},
+              ${cat?.btwRate ?? 9}
+            )
+          `
+        }
+
+        // Mark parsed only after line items were written successfully.
         await sql`
           UPDATE receipts SET
             item_count        = ${parsed.itemCount},
@@ -86,48 +130,11 @@ export async function POST(req: NextRequest) {
           WHERE id = ${receiptId}
         `
 
-        // Insert line items
-        if (parsed.items.length > 0) {
-          // Delete any existing items first (idempotent)
-          await sql`DELETE FROM receipt_items WHERE receipt_id = ${receiptId}`
-
-          for (const item of parsed.items) {
-            const cat = categorised.find(c => c.rawName === item.rawName)
-            const normalized = buildNormalizedItemFields(item.rawName, cat?.cleanName)
-
-            await sql`
-              INSERT INTO receipt_items (
-                receipt_id, quantity, raw_name, clean_name, normalized_name,
-                category, subcategory,
-                unit_price, total_price,
-                is_bonus_item, is_own_brand, is_statiegeld, is_koopzegel,
-                is_non_food, btw_rate
-              ) VALUES (
-                ${receiptId},
-                ${item.quantity},
-                ${item.rawName},
-                ${cat?.cleanName ?? null},
-                ${normalized.normalizedName},
-                ${cat?.category ?? null},
-                ${cat?.subcategory ?? null},
-                ${item.unitPrice},
-                ${item.totalPrice},
-                ${item.isBonusItem},
-                ${normalized.isOwnBrand},
-                ${item.isStatiegeld},
-                ${item.isKoopzegel},
-                ${cat?.isNonFood ?? false},
-                ${cat?.btwRate ?? 9}
-              )
-            `
-          }
-        }
-
         results.push({ id: receiptId, status: 'parsed', itemCount: parsed.itemCount })
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error'
         await sql`
-          UPDATE receipts SET parse_error = ${msg}, updated_at = NOW()
+          UPDATE receipts SET parsed = false, parse_error = ${msg}, updated_at = NOW()
           WHERE id = ${receiptId}
         `
         results.push({ id: receiptId, status: 'error', message: msg })
