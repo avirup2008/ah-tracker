@@ -94,6 +94,7 @@ export default function ReceiptsPage() {
   const [detailLoading, setDetailLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [retryingParse, setRetryingParse] = useState(false)
+  const [categorisingItems, setCategorisingItems] = useState(false)
   const [editorMsg, setEditorMsg] = useState<string | null>(null)
   const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([])
 
@@ -343,6 +344,29 @@ export default function ReceiptsPage() {
     }
   }
 
+  const categoriseSelectedItems = async () => {
+    if (!selectedId) return
+
+    setCategorisingItems(true)
+    setEditorMsg('Running AI categorisation…')
+    try {
+      const res = await fetch(`/api/receipts/${selectedId}/categorise`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'AI categorisation failed')
+
+      const updated = Number(data.updated ?? 0)
+      const totalItems = Number(data.total ?? updated)
+      setEditorMsg(updated > 0
+        ? `✅ Categorised ${updated}/${totalItems} items`
+        : `No uncategorised items found${totalItems > 0 ? ', or AI returned no usable categories' : ''}`)
+      await Promise.all([fetchReceipts(), fetchDetail(selectedId)])
+    } catch (err) {
+      setEditorMsg(err instanceof Error ? `❌ ${err.message}` : '❌ AI categorisation failed')
+    } finally {
+      setCategorisingItems(false)
+    }
+  }
+
   const detailSubtotal = detail?.items
     .filter((item) => !item.is_statiegeld && !item.is_koopzegel)
     .reduce((sum, item) => sum + Number(item.total_price || 0), 0) ?? 0
@@ -352,6 +376,11 @@ export default function ReceiptsPage() {
       Number(detail?.receipt.koopzegels ?? 0) -
       Number(detail?.receipt.statiegeld ?? 0)
   )
+  const uncategorisedCount = detail?.items.filter((item) =>
+    !item.is_statiegeld &&
+    !item.is_koopzegel &&
+    (!item.clean_name || !item.category || item.btw_rate === null)
+  ).length ?? 0
 
   return (
     <div className="flex flex-col gap-5">
@@ -658,7 +687,21 @@ export default function ReceiptsPage() {
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
                 <div className="card-label" style={{ marginBottom: 0 }}>Line Items ({detail.items.length})</div>
-                <button className="btn-ghost" style={{ fontSize: 11 }} onClick={addItem}>＋ Add item</button>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  {uncategorisedCount > 0 && (
+                    <button
+                      className="btn-ghost"
+                      style={{ fontSize: 11 }}
+                      onClick={categoriseSelectedItems}
+                      disabled={categorisingItems}
+                    >
+                      {categorisingItems
+                        ? 'Categorising…'
+                        : `AI categorise ${uncategorisedCount} item${uncategorisedCount === 1 ? '' : 's'}`}
+                    </button>
+                  )}
+                  <button className="btn-ghost" style={{ fontSize: 11 }} onClick={addItem}>＋ Add item</button>
+                </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 520, overflowY: 'auto', paddingRight: 4 }}>
