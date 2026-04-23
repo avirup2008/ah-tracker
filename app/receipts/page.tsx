@@ -88,6 +88,7 @@ export default function ReceiptsPage() {
   const [uploadMsg, setUploadMsg] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [parseMsg, setParseMsg] = useState<string | null>(null)
+  const [parsingPending, setParsingPending] = useState(false)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [detail, setDetail] = useState<ReceiptDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -178,11 +179,60 @@ export default function ReceiptsPage() {
   }
 
   const parsePending = async () => {
-    setParseMsg('Triggering parse…')
-    const res = await fetch('/api/parse')
-    const data = await res.json()
-    setParseMsg(`Parsed ${data.parsed ?? 0} receipts`)
-    fetchReceipts()
+    const pendingIds = receipts
+      .filter((receipt) => !receipt.parsed && !receipt.parse_error)
+      .map((receipt) => receipt.id)
+
+    if (pendingIds.length === 0) {
+      setParseMsg('No pending receipts to parse.')
+      return
+    }
+
+    setParsingPending(true)
+    setParseMsg(`Parsing 0/${pendingIds.length} receipts…`)
+
+    let parsedCount = 0
+    let errorCount = 0
+    const chunkSize = 2
+
+    try {
+      for (let index = 0; index < pendingIds.length; index += chunkSize) {
+        const receiptIds = pendingIds.slice(index, index + chunkSize)
+        setParseMsg(`Parsing ${Math.min(index, pendingIds.length)}/${pendingIds.length} receipts…`)
+
+        const controller = new AbortController()
+        const timeoutId = window.setTimeout(() => controller.abort(), 90000)
+
+        try {
+          const res = await fetch('/api/parse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ receiptIds }),
+            signal: controller.signal,
+          })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'Parse request failed')
+
+          parsedCount += Number(data.parsed ?? 0)
+          errorCount += Number(data.errors ?? 0)
+        } finally {
+          window.clearTimeout(timeoutId)
+        }
+      }
+
+      setParseMsg(`Parsed ${parsedCount}/${pendingIds.length} receipts${errorCount ? ` · ${errorCount} errors` : ''}`)
+      await fetchReceipts()
+    } catch (err) {
+      const message = err instanceof DOMException && err.name === 'AbortError'
+        ? 'Parse timed out on the current batch. Refresh and try again; completed receipts were saved.'
+        : err instanceof Error
+          ? err.message
+          : 'Parse failed'
+      setParseMsg(`❌ ${message}`)
+      await fetchReceipts()
+    } finally {
+      setParsingPending(false)
+    }
   }
 
   const updateReceiptField = (field: keyof Receipt, value: string | number | null) => {
@@ -417,8 +467,13 @@ export default function ReceiptsPage() {
             <p style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginBottom: 14 }}>
               Parse all pending receipts. Use manual review when a parsed receipt needs correction.
             </p>
-            <button className="btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={parsePending}>
-              Parse All Pending
+            <button
+              className="btn-primary"
+              style={{ width: '100%', justifyContent: 'center' }}
+              onClick={parsePending}
+              disabled={parsingPending}
+            >
+              {parsingPending ? 'Parsing…' : 'Parse All Pending'}
             </button>
             {parseMsg && <p style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-body)', marginTop: 10, textAlign: 'center' }}>{parseMsg}</p>}
           </div>

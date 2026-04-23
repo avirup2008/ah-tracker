@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       parsed: results.filter(r => r.status === 'parsed').length,
-      errors: results.filter(r => r.status === 'error').length,
+      errors: results.filter(r => r.status === 'error' || r.status === 'parse_error').length,
       results,
     })
   } catch (err) {
@@ -148,7 +148,7 @@ export async function GET() {
   const unparsed = await sql`
     SELECT id FROM receipts WHERE parsed = false AND parse_error IS NULL
     ORDER BY receipt_date ASC
-    LIMIT 20
+    LIMIT 2
   `
 
   if (!unparsed.length) {
@@ -157,8 +157,8 @@ export async function GET() {
 
   const ids = unparsed.map((r: Record<string, unknown>) => r.id as number)
 
-  // Delegate to POST handler
-  const req = new Request(`${process.env.NEXT_PUBLIC_APP_URL}/api/parse`, {
+  // Delegate to POST handler without depending on public app URL configuration.
+  const req = new Request('http://localhost/api/parse', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ receiptIds: ids }),
