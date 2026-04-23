@@ -93,6 +93,7 @@ export default function ReceiptsPage() {
   const [detail, setDetail] = useState<ReceiptDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [retryingParse, setRetryingParse] = useState(false)
   const [editorMsg, setEditorMsg] = useState<string | null>(null)
   const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([])
 
@@ -310,6 +311,35 @@ export default function ReceiptsPage() {
       setEditorMsg(err instanceof Error ? `❌ ${err.message}` : '❌ Failed to save receipt')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const retrySelectedParse = async () => {
+    if (!selectedId) return
+
+    setRetryingParse(true)
+    setEditorMsg('Retrying parse…')
+    try {
+      const res = await fetch('/api/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receiptIds: [selectedId] }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Retry parse failed')
+
+      const result = data.results?.[0]
+      if (result?.status === 'parsed') {
+        setEditorMsg('✅ Receipt parsed successfully')
+      } else {
+        setEditorMsg(`❌ ${result?.message ?? 'Parse still failed'}`)
+      }
+
+      await Promise.all([fetchReceipts(), fetchDetail(selectedId)])
+    } catch (err) {
+      setEditorMsg(err instanceof Error ? `❌ ${err.message}` : '❌ Retry parse failed')
+    } finally {
+      setRetryingParse(false)
     }
   }
 
@@ -583,6 +613,14 @@ export default function ReceiptsPage() {
                       <span> This receipt was parsed before detailed diagnostics were added; retry parsing to see exactly which fields are missing.</span>
                     )}
                   </div>
+                  <button
+                    className="btn-ghost"
+                    style={{ fontSize: 11, marginTop: 10 }}
+                    onClick={retrySelectedParse}
+                    disabled={retryingParse}
+                  >
+                    {retryingParse ? 'Retrying parse…' : 'Retry parse this receipt'}
+                  </button>
                 </div>
               )}
 
