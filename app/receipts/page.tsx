@@ -95,6 +95,7 @@ export default function ReceiptsPage() {
   const [saving, setSaving] = useState(false)
   const [retryingParse, setRetryingParse] = useState(false)
   const [categorisingItems, setCategorisingItems] = useState(false)
+  const [deletingReceipt, setDeletingReceipt] = useState(false)
   const [editorMsg, setEditorMsg] = useState<string | null>(null)
   const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([])
 
@@ -364,6 +365,31 @@ export default function ReceiptsPage() {
       setEditorMsg(err instanceof Error ? `❌ ${err.message}` : '❌ AI categorisation failed')
     } finally {
       setCategorisingItems(false)
+    }
+  }
+
+  const deleteSelectedReceipt = async () => {
+    if (!selectedId || !detail) return
+
+    const confirmed = window.confirm(`Delete this receipt permanently?\n\n${detail.receipt.filename}`)
+    if (!confirmed) return
+
+    setDeletingReceipt(true)
+    setEditorMsg('Deleting receipt…')
+    try {
+      const deletedId = selectedId
+      const res = await fetch(`/api/receipts/${deletedId}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to delete receipt')
+
+      setSelectedId(null)
+      setDetail(null)
+      setEditorMsg(null)
+      await fetchReceipts()
+    } catch (err) {
+      setEditorMsg(err instanceof Error ? `❌ ${err.message}` : '❌ Failed to delete receipt')
+    } finally {
+      setDeletingReceipt(false)
     }
   }
 
@@ -758,9 +784,17 @@ export default function ReceiptsPage() {
                 ))}
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <button className="btn-primary" onClick={saveCorrections} disabled={saving}>
                   {saving ? 'Saving…' : 'Save Corrections'}
+                </button>
+                <button
+                  className="btn-ghost"
+                  style={{ fontSize: 11, color: 'var(--warn)', borderColor: 'color-mix(in srgb, var(--warn) 35%, var(--border))' }}
+                  onClick={deleteSelectedReceipt}
+                  disabled={deletingReceipt}
+                >
+                  {deletingReceipt ? 'Deleting…' : 'Delete Receipt'}
                 </button>
                 {editorMsg && (
                   <span style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)' }}>

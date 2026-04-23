@@ -270,3 +270,29 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     return NextResponse.json({ error: 'Failed to update receipt' }, { status: 500 })
   }
 }
+
+export async function DELETE(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params
+  const receiptId = parseReceiptId(params.id)
+  if (!receiptId) {
+    return NextResponse.json({ error: 'Invalid receipt id' }, { status: 400 })
+  }
+
+  try {
+    await sql`DELETE FROM receipt_items WHERE receipt_id = ${receiptId}`
+    const deletedReceipts = await sql`
+      DELETE FROM receipts
+      WHERE id = ${receiptId}
+      RETURNING id
+    `
+
+    if (deletedReceipts.length === 0) {
+      return NextResponse.json({ error: 'Receipt not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ ok: true, receiptId })
+  } catch (err) {
+    console.error('Receipt delete error:', err)
+    return NextResponse.json({ error: 'Failed to delete receipt' }, { status: 500 })
+  }
+}
