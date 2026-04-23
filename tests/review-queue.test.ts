@@ -42,12 +42,12 @@ test('summarizeReviewQueue counts priorities and top reasons', () => {
   const summary = summarizeReviewQueue([
     { review: { score: 80, priority: 'high', needs_review: true, reasons: ['Parse failed', 'Unknown store'] } },
     { review: { score: 45, priority: 'medium', needs_review: true, reasons: ['Unknown store'] } },
-    { review: { score: 24, priority: 'low', needs_review: true, reasons: ['Missing payment method'] } },
+    { review: { score: 24, priority: 'low', needs_review: true, reasons: ['Very low item count'] } },
   ])
 
   assert.equal(summary.total, 3)
   assert.equal(summary.highPriority, 1)
   assert.equal(summary.mediumPriority, 1)
   assert.equal(summary.lowPriority, 1)
-  assert.deepEqual(summary.topReasons, ['Unknown store (2)', 'Missing payment method (1)', 'Parse failed (1)'])
+  assert.deepEqual(summary.topReasons, ['Unknown store (2)', 'Parse failed (1)', 'Very low item count (1)'])
 })

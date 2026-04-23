@@ -77,11 +77,6 @@ export function assessReceiptReview(input: ReviewSignalInput): ReviewAssessment 
     addReason(reasons, 'Never manually reviewed')
   }
 
-  if (input.parsed && !input.payment_method) {
-    score += 8
-    addReason(reasons, 'Missing payment method')
-  }
-
   if (input.parsed && (!input.store_id || input.store_id === 'unknown')) {
     score += 8
     addReason(reasons, 'Unknown store')

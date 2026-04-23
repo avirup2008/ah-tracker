@@ -203,6 +203,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     const totalPaid = roundMoney(Math.max(0, parseNumber(body.total_paid, subtotal + koopzegels + statiegeld)))
     const netGrocerySpend = roundMoney(Math.max(0, totalPaid - koopzegels - statiegeld))
     const weekSaturday = getWeekSaturday(date)
+    const paymentMethod = parseOptionalString(body.payment_method) ?? 'Maestro'
 
     await sql`DELETE FROM receipt_items WHERE receipt_id = ${receiptId}`
 
@@ -248,7 +249,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         statiegeld = ${statiegeld},
         net_grocery_spend = ${netGrocerySpend},
         total_paid = ${totalPaid},
-        payment_method = ${parseOptionalString(body.payment_method)},
+        payment_method = ${paymentMethod},
         parsed = true,
         parse_error = null,
         reviewed_at = NOW(),
