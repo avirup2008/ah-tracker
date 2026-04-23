@@ -72,12 +72,6 @@ export function assessReceiptReview(input: ReviewSignalInput): ReviewAssessment 
     addReason(reasons, 'Unknown store')
   }
 
-  const itemCount = Number(input.item_count ?? 0)
-  if (input.parsed && itemCount <= 1) {
-    score += 20
-    addReason(reasons, 'Very low item count')
-  }
-
   const needsReview = score >= 20 || Boolean(input.parse_error) || !input.parsed
   const priority: ReviewAssessment['priority'] =
     score >= 70 ? 'high' :
