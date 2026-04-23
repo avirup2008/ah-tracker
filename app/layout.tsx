@@ -20,11 +20,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body>
         <ThemeProvider>
-          <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
+          <div className="app-shell min-h-screen">
+            <div className="app-shell__backdrop" />
             <Header />
             {/* pb-20 on mobile clears the bottom nav bar */}
-            <main className="max-w-[1280px] mx-auto px-4 py-4 md:px-6 md:py-6 pb-20 md:pb-6">
-              {children}
+            <main className="page-frame max-w-[1380px] mx-auto px-4 py-5 md:px-6 md:py-8 pb-24 md:pb-8">
+              <div className="page-content">
+                {children}
+              </div>
             </main>
             <MobileNav />
           </div>

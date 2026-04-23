@@ -2,78 +2,54 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { ChartColumn, ChefHat, LayoutGrid, ReceiptText, Tags } from 'lucide-react'
 import { ThemeToggle } from './ThemeToggle'
 
 const NAV = [
-  { href: '/',             label: 'Dashboard'    },
-  { href: '/receipts',     label: 'Receipts'     },
-  { href: '/analysis',     label: 'Analysis'     },
-  { href: '/meal-planner', label: 'Meal Planner' },
-  { href: '/deals',        label: 'Deals'        },
+  { href: '/', label: 'Dashboard', icon: LayoutGrid },
+  { href: '/receipts', label: 'Receipts', icon: ReceiptText },
+  { href: '/analysis', label: 'Analysis', icon: ChartColumn },
+  { href: '/meal-planner', label: 'Meal Planner', icon: ChefHat },
+  { href: '/deals', label: 'Deals', icon: Tags },
 ]
 
 export function Header() {
   const pathname = usePathname()
 
   return (
-    <header
-      className="sticky top-0 z-50 flex items-center h-[56px] md:h-[62px] px-4 md:px-6 border-b"
-      style={{ background: 'var(--header-bg)', borderColor: 'var(--header-border)' }}
-    >
-      {/* Logo */}
-      <Link href="/" className="flex items-center gap-2.5 flex-shrink-0" style={{ textDecoration: 'none' }}>
-        <div
-          className="w-[32px] h-[32px] rounded-[9px] flex items-center justify-center text-[14px] border flex-shrink-0"
-          style={{
-            background: 'var(--logo-icon-bg, rgba(255,255,255,0.1))',
-            borderColor: 'var(--logo-icon-border, rgba(255,255,255,0.15))',
-          }}
-        >
-          🛒
-        </div>
-        <div>
-          <div
-            className="text-[14px] md:text-[15.5px] font-bold leading-tight tracking-tight"
-            style={{ fontFamily: 'var(--font-display)', color: 'var(--logo-color, #FAF7F1)' }}
-          >
-            AH Tracker
+    <header className="app-header">
+      <div className="app-header__inner">
+        <Link href="/" className="app-brand" style={{ textDecoration: 'none' }}>
+          <div className="app-brand__mark">
+            <span className="app-brand__mark-top">AH</span>
+            <span className="app-brand__mark-bottom">TRACKER</span>
           </div>
-          {/* Hide subtitle on very small screens */}
-          <div
-            className="hidden sm:block text-[9px] uppercase tracking-[0.09em] leading-none mt-0.5"
-            style={{ fontFamily: 'var(--font-mono)', color: 'var(--logo-sub, rgba(250,247,241,0.45))' }}
-          >
-            Beverhof · Beverwijk
+          <div className="app-brand__copy">
+            <div className="app-brand__title">AH Tracker</div>
+            <div className="app-brand__subtitle">Household Grocery Intelligence</div>
           </div>
+        </Link>
+
+        <nav className="app-nav hidden md:flex">
+          {NAV.map(({ href, label, icon: Icon }) => {
+            const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`app-nav__link ${active ? 'active' : ''}`}
+              >
+                <Icon size={15} strokeWidth={2} />
+                <span>{label}</span>
+              </Link>
+            )
+          })}
+        </nav>
+
+        <div className="app-header__meta">
+          <WeekChip />
+          <ThemeToggle />
         </div>
-      </Link>
-
-      {/* Desktop nav — hidden on mobile (uses bottom MobileNav instead) */}
-      <nav className="hidden md:flex flex-1 justify-center gap-0.5">
-        {NAV.map(({ href, label }) => {
-          const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
-          return (
-            <Link
-              key={href}
-              href={href}
-              className="px-3 py-[7px] rounded-[var(--radius-sm)] text-[12.5px] font-semibold transition-all duration-150"
-              style={active ? {
-                background: 'var(--nav-active-bg, rgba(255,255,255,0.12))',
-                color: 'var(--nav-active-text, #FAF7F1)',
-              } : {
-                color: 'var(--nav-text, rgba(255,255,255,0.42))',
-              }}
-            >
-              {label}
-            </Link>
-          )
-        })}
-      </nav>
-
-      {/* Right — week chip hidden on mobile to save space */}
-      <div className="flex items-center gap-2 md:gap-3 ml-auto">
-        <WeekChip />
-        <ThemeToggle />
       </div>
     </header>
   )
@@ -86,17 +62,9 @@ function WeekChip() {
   const year = now.getFullYear()
 
   return (
-    <div
-      className="hidden sm:block px-2.5 py-1 rounded-full text-[10.5px] font-semibold border"
-      style={{
-        fontFamily: 'var(--font-mono)',
-        letterSpacing: '0.05em',
-        background: 'var(--week-chip-bg, rgba(255,255,255,0.1))',
-        color: 'var(--week-chip-text, rgba(255,255,255,0.7))',
-        borderColor: 'var(--logo-icon-border, rgba(255,255,255,0.15))',
-      }}
-    >
-      W{weekNum} · {month} {year}
+    <div className="app-week-chip hidden sm:flex">
+      <span className="app-week-chip__label">Current Week</span>
+      <span className="mono">W{weekNum} · {month} {year}</span>
     </div>
   )
 }
