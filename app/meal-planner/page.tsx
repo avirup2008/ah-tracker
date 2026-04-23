@@ -9,6 +9,7 @@ type View = 'plan' | 'shopping'
 type MealPrepPreference = 'high' | 'balanced' | 'minimal'
 type CuisineMode = 'mixed' | 'indian' | 'european'
 type BudgetStyle = 'cheap' | 'balanced' | 'treat'
+type ShoppingListDisplayItem = ShoppingListItem['items'][number] & { category: string }
 
 interface ProductInsight {
   name: string
@@ -238,6 +239,15 @@ export default function MealPlannerPage() {
 
   const meals = mealPlan?.meals_json as MealPlanData | undefined
   const shoppingList = mealPlan?.shopping_list as ShoppingListItem[] | undefined
+  const shoppingItems: ShoppingListDisplayItem[] = (shoppingList ?? []).flatMap((section) =>
+    section.items.map((item) => ({ ...item, category: section.category }))
+  )
+  const bonusShoppingItems = shoppingItems.filter((item) => item.bonus_deal && !item.pantry_covered)
+  const regularShoppingItems = shoppingItems.filter((item) => !item.bonus_deal && !item.pantry_covered)
+  const pantryCoveredItems = shoppingItems.filter((item) => item.pantry_covered)
+  const buyNowItems = [...bonusShoppingItems, ...regularShoppingItems]
+  const buyNowTotal = buyNowItems.reduce((sum, item) => sum + Number(item.est_price ?? 0), 0)
+  const pantryCoveredTotal = pantryCoveredItems.reduce((sum, item) => sum + Number(item.est_price ?? 0), 0)
 
   const orderedMeals = (type: 'lunches' | 'dinners') =>
     DAYS.map(day => meals?.[type]?.find(m => m.day === day)).filter(Boolean) as Meal[]
@@ -670,45 +680,112 @@ export default function MealPlannerPage() {
 
       {/* ── SHOPPING LIST VIEW ────────────────────────────────── */}
       {mealPlan && view === 'shopping' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {(shoppingList ?? []).map((section) => (
-            <div key={section.category} className="card p-5">
-              <div className="card-label">{section.category}</div>
-              <div className="flex flex-col">
-                {section.items.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between py-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
-                    <div>
-                      <div style={{ fontSize: 12.5, color: 'var(--text)', fontFamily: 'var(--font-body)' }}>
-                        {item.ah_name}
-                        <span style={{ color: 'var(--text-4)', fontSize: 11, marginLeft: 5 }}>({item.english_name})</span>
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-4)', marginTop: 1, fontFamily: 'var(--font-body)' }}>{item.quantity}</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {item.bonus_deal && <Tag>Bonus</Tag>}
-                      {item.pantry_covered && <Tag>Pantry</Tag>}
-                      <span className="mono" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>{formatEuro(item.est_price)}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <MetricCard label="Need to buy" value={`${buyNowItems.length} items`} tone="accent" />
+            <MetricCard label="Estimated buy cost" value={formatEuro(buyNowTotal)} tone="neutral" />
+            <MetricCard label="Pantry covered" value={formatEuro(pantryCoveredTotal)} tone="good" />
+          </div>
 
-          {/* Total */}
-          <div className="card p-4 flex flex-wrap items-center justify-between gap-3 lg:col-span-2">
+          <div className="card p-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="card-label" style={{ marginBottom: 4 }}>Shopping List Total</div>
-              <p style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--font-body)' }}>
-                Estimated cost for all meal ingredients · Check AH Deals tab for active Bonuskaart offers
+              <div className="card-label" style={{ marginBottom: 4 }}>Smart Shopping List</div>
+              <p style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                Split by action: buy Bonus items first, then regular ingredients, with pantry-covered items separated for review.
               </p>
             </div>
-            <div className="mono" style={{ fontSize: 32, fontWeight: 700, color: 'var(--accent)' }}>
-              {formatEuro(mealPlan.estimated_cost)}
+            <div className="mono" style={{ fontSize: 28, fontWeight: 700, color: 'var(--accent)' }}>
+              {formatEuro(buyNowTotal)}
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_1.05fr_0.9fr] gap-4">
+            <ShoppingListPanel
+              title="Bonus Deals To Buy"
+              empty="No Bonus deal ingredients in this plan."
+              items={bonusShoppingItems}
+              tone="accent"
+            />
+            <ShoppingListPanel
+              title="Regular Items To Buy"
+              empty="No regular ingredients left to buy."
+              items={regularShoppingItems}
+              tone="neutral"
+            />
+            <ShoppingListPanel
+              title="Covered By Pantry"
+              empty="No planned ingredients are covered by pantry."
+              items={pantryCoveredItems}
+              tone="good"
+              muted
+            />
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function ShoppingListPanel({
+  title,
+  empty,
+  items,
+  tone,
+  muted = false,
+}: {
+  title: string
+  empty: string
+  items: ShoppingListDisplayItem[]
+  tone: 'good' | 'accent' | 'neutral'
+  muted?: boolean
+}) {
+  const total = items.reduce((sum, item) => sum + Number(item.est_price ?? 0), 0)
+  const color = tone === 'good' ? 'var(--good)' : tone === 'accent' ? 'var(--accent)' : 'var(--text)'
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="card-label">{title}</div>
+          <p style={{ fontSize: 11.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)', marginTop: 4 }}>
+            {items.length} item{items.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        <span className="mono" style={{ fontSize: 16, fontWeight: 700, color }}>{formatEuro(total)}</span>
+      </div>
+
+      <div className="flex flex-col mt-3">
+        {items.length === 0 ? (
+          <p style={{ fontSize: 12, color: 'var(--text-4)', fontFamily: 'var(--font-body)', padding: '16px 0' }}>
+            {empty}
+          </p>
+        ) : (
+          items.map((item, i) => (
+            <ShoppingListRow key={`${item.category}-${item.ah_name}-${i}`} item={item} muted={muted} />
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ShoppingListRow({ item, muted = false }: { item: ShoppingListDisplayItem; muted?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-2.5" style={{ borderBottom: '1px solid var(--border)', opacity: muted ? 0.72 : 1 }}>
+      <div>
+        <div style={{ fontSize: 12.5, color: 'var(--text)', fontFamily: 'var(--font-body)', lineHeight: 1.35 }}>
+          {item.ah_name}
+          <span style={{ color: 'var(--text-4)', fontSize: 11, marginLeft: 5 }}>({item.english_name})</span>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-4)', marginTop: 2, fontFamily: 'var(--font-body)' }}>
+          {item.quantity} · {item.category}
+        </div>
+      </div>
+      <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
+        {item.bonus_deal && <Tag>Bonus</Tag>}
+        {item.pantry_covered && <Tag color="neutral">Pantry</Tag>}
+        <span className="mono" style={{ fontSize: 12.5, fontWeight: 600, color: muted ? 'var(--text-3)' : 'var(--text)' }}>{formatEuro(item.est_price)}</span>
+      </div>
     </div>
   )
 }
