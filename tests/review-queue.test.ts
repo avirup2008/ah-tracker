@@ -38,6 +38,29 @@ test('assessReceiptReview flags parsed receipts with missing classifications', (
   assert.ok(result.reasons.some((reason) => reason.includes('uncategorised')))
 })
 
+test('assessReceiptReview ignores receipt total mismatches', () => {
+  const result = assessReceiptReview({
+    parsed: true,
+    parse_error: null,
+    reviewed_at: '2026-04-23T00:00:00.000Z',
+    store_id: '1251',
+    payment_method: 'Maestro',
+    item_count: 8,
+    total_paid: 20,
+    subtotal: 12,
+    koopzegels: 0,
+    statiegeld: 0,
+    missing_categories: 0,
+    missing_clean_names: 0,
+    unknown_btw: 0,
+    items_total: 8,
+  })
+
+  assert.equal(result.needs_review, false)
+  assert.equal(result.priority, 'none')
+  assert.equal(result.reasons.length, 0)
+})
+
 test('summarizeReviewQueue counts priorities and top reasons', () => {
   const summary = summarizeReviewQueue([
     { review: { score: 80, priority: 'high', needs_review: true, reasons: ['Parse failed', 'Unknown store'] } },

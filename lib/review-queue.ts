@@ -30,10 +30,6 @@ export interface ReviewQueueSummary {
   topReasons: string[]
 }
 
-function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100
-}
-
 function addReason(reasons: string[], label: string) {
   if (!reasons.includes(label)) reasons.push(label)
 }
@@ -86,20 +82,6 @@ export function assessReceiptReview(input: ReviewSignalInput): ReviewAssessment 
   if (input.parsed && itemCount <= 1) {
     score += 20
     addReason(reasons, 'Very low item count')
-  }
-
-  const totalPaid = Number(input.total_paid ?? 0)
-  const subtotal = Number(input.subtotal ?? 0)
-  const koopzegels = Number(input.koopzegels ?? 0)
-  const statiegeld = Number(input.statiegeld ?? 0)
-
-  if (input.parsed && totalPaid > 0) {
-    const expected = roundMoney(subtotal + koopzegels + statiegeld)
-    const delta = Math.abs(roundMoney(totalPaid - expected))
-    if (delta > 0.05) {
-      score += 20
-      addReason(reasons, `Totals mismatch by €${delta.toFixed(2)}`)
-    }
   }
 
   const needsReview = score >= 20 || Boolean(input.parse_error) || !input.parsed
