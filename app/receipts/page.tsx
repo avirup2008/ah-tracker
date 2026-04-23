@@ -292,7 +292,7 @@ export default function ReceiptsPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          receipt_date: detail.receipt.receipt_date,
+          receipt_date: String(detail.receipt.receipt_date).slice(0, 10),
           store_id: detail.receipt.store_id,
           payment_method: detail.receipt.payment_method,
           total_paid: Number(detail.receipt.total_paid ?? 0),

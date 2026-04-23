@@ -71,6 +71,20 @@ function parseOptionalBtwRate(value: unknown): number | null {
   return rate === 9 || rate === 21 ? rate : null
 }
 
+function parseReceiptDateInput(value: unknown): { date: Date; receiptDate: string } | null {
+  const raw = parseOptionalString(value)
+  if (!raw) return null
+
+  const dateOnlyMatch = raw.match(/^(\d{4}-\d{2}-\d{2})/)
+  const receiptDate = dateOnlyMatch?.[1]
+  if (!receiptDate) return null
+
+  const date = new Date(`${receiptDate}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return null
+
+  return { date, receiptDate }
+}
+
 function sanitizeItems(items: unknown): ReceiptItemInput[] {
   if (!Array.isArray(items)) return []
 
@@ -160,15 +174,11 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       items?: unknown
     }
 
-    const receiptDate = parseOptionalString(body.receipt_date)
-    if (!receiptDate) {
+    const parsedDate = parseReceiptDateInput(body.receipt_date)
+    if (!parsedDate) {
       return NextResponse.json({ error: 'receipt_date is required' }, { status: 400 })
     }
-
-    const date = new Date(`${receiptDate}T00:00:00`)
-    if (Number.isNaN(date.getTime())) {
-      return NextResponse.json({ error: 'Invalid receipt_date' }, { status: 400 })
-    }
+    const { date, receiptDate } = parsedDate
 
     const items = sanitizeItems(body.items)
     if (items.length === 0) {
