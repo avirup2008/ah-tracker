@@ -122,6 +122,13 @@ body {
   transition: background 0.2s, color 0.2s;
 }
 
+body:has(.premium-home--cinematic) {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(246, 167, 45, 0.08) 0%, transparent 22%),
+    radial-gradient(circle at 86% 10%, rgba(73, 96, 138, 0.16) 0%, transparent 24%),
+    linear-gradient(180deg, #090d14 0%, #0b1018 36%, #0d121b 100%);
+}
+
 .app-shell {
   position: relative;
   overflow-x: clip;
@@ -136,6 +143,13 @@ body {
     radial-gradient(circle at 90% 12%, rgba(106, 135, 171, 0.12) 0, transparent 22%),
     linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.18) 100%);
   opacity: 1;
+}
+
+body:has(.premium-home--cinematic) .app-shell__backdrop {
+  background:
+    radial-gradient(circle at 10% 20%, rgba(246, 167, 45, 0.1) 0%, transparent 24%),
+    radial-gradient(circle at 88% 10%, rgba(73, 96, 138, 0.16) 0%, transparent 24%),
+    linear-gradient(180deg, rgba(8, 12, 18, 0.04) 0%, rgba(8, 12, 18, 0.18) 100%);
 }
 
 .page-frame {
@@ -169,6 +183,37 @@ body {
   border-radius: 20px;
   background: var(--header-bg);
   box-shadow: var(--shadow-sm);
+}
+
+body:has(.premium-home--cinematic) .app-header__inner {
+  border-color: rgba(255,255,255,0.08);
+  background: linear-gradient(180deg, rgba(12, 16, 24, 0.9) 0%, rgba(16, 22, 32, 0.82) 100%);
+  box-shadow: 0 20px 60px rgba(3, 5, 10, 0.34);
+}
+
+body:has(.premium-home--cinematic) .app-brand__title,
+body:has(.premium-home--cinematic) .app-nav__link,
+body:has(.premium-home--cinematic) .app-nav__link.active,
+body:has(.premium-home--cinematic) .app-week-chip,
+body:has(.premium-home--cinematic) .app-header__meta {
+  color: #f4efe6;
+}
+
+body:has(.premium-home--cinematic) .app-brand__subtitle,
+body:has(.premium-home--cinematic) .app-week-chip__label,
+body:has(.premium-home--cinematic) .app-nav__link {
+  color: rgba(183, 195, 217, 0.78);
+}
+
+body:has(.premium-home--cinematic) .app-nav__link:hover,
+body:has(.premium-home--cinematic) .app-nav__link.active {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(243, 195, 123, 0.24);
+}
+
+body:has(.premium-home--cinematic) .app-week-chip {
+  border-color: rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
 }
 
 .app-brand {
