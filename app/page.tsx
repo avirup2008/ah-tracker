@@ -92,6 +92,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="premium-home premium-home--cinematic flex flex-col gap-8">
+      <div className="premium-home__field" />
       <div className="premium-home__veil premium-home__veil--left" />
       <div className="premium-home__veil premium-home__veil--right" />
       <div className="premium-home__grain" />
