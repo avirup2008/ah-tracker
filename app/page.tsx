@@ -1,6 +1,6 @@
 import sql from '@/lib/db'
-import { SpendChartClient } from '@/components/dashboard/SpendChartClient'
 import { BudgetCard } from '@/components/dashboard/BudgetCard'
+import { ShowcaseSpendScene } from '@/components/dashboard/ShowcaseSpendScene'
 import { MONTHLY_TARGET, WEEKLY_BUDGET } from '@/lib/budget-constants'
 import Link from 'next/link'
 import { formatEuro } from '@/lib/utils'
@@ -164,7 +164,13 @@ export default async function DashboardPage() {
       <section className="premium-stage animate-in" style={{ animationDelay: '120ms' }}>
         <div className="premium-stage__grid">
           <div className="premium-stage__primary">
-            <SpendChartClient data={data.weeklyChart} weekBudget={data.WEEKLY_BUDGET} />
+            <ShowcaseSpendScene
+              data={data.weeklyChart}
+              weekBudget={data.WEEKLY_BUDGET}
+              weekSpend={data.weekSpend}
+              projected={data.projected}
+              monthTarget={data.MONTHLY_TARGET}
+            />
           </div>
           <div className="premium-stage__side">
             <BudgetCard
@@ -229,7 +235,7 @@ function HeroStat({
 }) {
   return (
     <div
-      className="rounded-[18px] border p-4"
+      className="premium-stat"
       style={{
         background: 'color-mix(in srgb, var(--surface2) 78%, transparent)',
         borderColor: 'color-mix(in srgb, var(--text) 8%, var(--border))',
