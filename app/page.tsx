@@ -9,9 +9,8 @@ import { HealthStrip } from '@/components/dashboard/HealthStrip'
 import { AiInsightsDashboard } from '@/components/dashboard/AiInsightsDashboard'
 import { ReviewQueueMonitor } from '@/components/dashboard/ReviewQueueMonitor'
 import { BudgetAlertMonitor } from '@/components/dashboard/BudgetAlertMonitor'
-import { AutomationCenter } from '@/components/dashboard/AutomationCenter'
 import { reconcileMealPlan } from '@/lib/reconciliation'
-import { getAutomationStatus, listAutomationStatusesWithDefinitions } from '@/lib/automation-status'
+import { getAutomationStatus } from '@/lib/automation-status'
 import { MONTHLY_TARGET, WEEKLY_BUDGET } from '@/lib/budget-constants'
 import { getInflationInsights } from '@/lib/product-intelligence'
 import Link from 'next/link'
@@ -129,10 +128,9 @@ async function getMealPlan() {
 export default async function DashboardPage() {
   const [data, mealPlan] = await Promise.all([getDashboardData(), getMealPlan()])
   const reconciliation = await reconcileMealPlan(mealPlan)
-  const [reviewReminder, budgetReminder, automationStatuses] = await Promise.all([
+  const [reviewReminder, budgetReminder] = await Promise.all([
     getAutomationStatus('review_queue_reminder'),
     getAutomationStatus('over_budget_alert'),
-    listAutomationStatusesWithDefinitions(),
   ])
   const weekOver = data.weekSpend > data.WEEKLY_BUDGET
   const projectedOver = data.projected > data.MONTHLY_TARGET
@@ -264,8 +262,6 @@ export default async function DashboardPage() {
       </div>
 
       <BudgetAlertMonitor reminder={budgetReminder} />
-
-      <AutomationCenter statuses={automationStatuses} />
     </div>
   )
 }
