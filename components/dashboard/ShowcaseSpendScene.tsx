@@ -59,11 +59,11 @@ export function ShowcaseSpendScene({
     ? Math.round((chartData.reduce((sum, item) => sum + item.spend, 0) / chartData.length) * 100) / 100
     : 0
 
-  const accent = isDark ? '#ffc56f' : '#b87616'
-  const accentSoft = isDark ? '#ffdc9a' : '#dfc39a'
-  const grid = isDark ? '#2a3146' : '#eadcc7'
-  const tick = isDark ? '#4b5774' : '#a89478'
-  const targetStroke = isDark ? '#8893b1' : '#d8c7ad'
+  const accent = isDark ? '#ffc56f' : '#c58a28'
+  const accentSoft = isDark ? '#ffd99d' : '#e7bb74'
+  const grid = isDark ? '#273248' : '#38475f'
+  const tick = isDark ? '#7183a3' : '#8492ad'
+  const targetStroke = isDark ? '#8d9ab5' : '#6f7f9b'
   const projectedDelta = projected - monthTarget
 
   return (
@@ -106,12 +106,12 @@ export function ShowcaseSpendScene({
               <Tooltip
                 cursor={{ stroke: accentSoft, strokeOpacity: 0.4 }}
                 contentStyle={{
-                  background: isDark ? '#141926' : '#fffdf8',
+                  background: isDark ? '#121824' : '#101722',
                   border: `1px solid ${grid}`,
                   borderRadius: 14,
                   fontSize: 12,
                   fontFamily: 'IBM Plex Mono',
-                  color: isDark ? '#f5f1e8' : '#1f150a',
+                  color: '#f3ecdf',
                 }}
                 formatter={(value: number) => [`€${value.toFixed(2)}`, 'Spend']}
               />
