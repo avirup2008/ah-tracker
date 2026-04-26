@@ -1,9 +1,6 @@
 import sql from '@/lib/db'
 import { SpendChartClient } from '@/components/dashboard/SpendChartClient'
 import { BudgetCard } from '@/components/dashboard/BudgetCard'
-import { AiInsightsDashboard } from '@/components/dashboard/AiInsightsDashboard'
-import { ReviewQueueMonitor } from '@/components/dashboard/ReviewQueueMonitor'
-import { getAutomationStatus } from '@/lib/automation-status'
 import { MONTHLY_TARGET, WEEKLY_BUDGET } from '@/lib/budget-constants'
 import Link from 'next/link'
 import { formatEuro } from '@/lib/utils'
@@ -86,7 +83,6 @@ async function getDashboardData() {
 
 export default async function DashboardPage() {
   const data = await getDashboardData()
-  const reviewReminder = await getAutomationStatus('review_queue_reminder')
   const weekOver = data.weekSpend > data.WEEKLY_BUDGET
   const projectedOver = data.projected > data.MONTHLY_TARGET
   const currentWeekSaturday = data.weeklyChart.at(-1)?.week_saturday
@@ -103,12 +99,13 @@ export default async function DashboardPage() {
           <div className="premium-hero__copy">
             <div className="card-label" style={{ marginBottom: 0 }}>Dashboard</div>
             <h1 className="premium-hero__title">
-              Grocery control,
+              Spend less.
               <br />
-              week by week.
+              See it sooner.
             </h1>
             <p className="premium-hero__body">
-              Weekly spend is {formatEuro(data.weekSpend)}. Month projection is {formatEuro(data.projected)}.
+              Weekly spend is {formatEuro(data.weekSpend)} against {formatEuro(data.WEEKLY_BUDGET)}.
+              Month projection sits at {formatEuro(data.projected)}.
             </p>
             <div className="premium-hero__actions">
               <Link href="/receipts" className="btn-primary" style={{ textDecoration: 'none' }}>
@@ -120,6 +117,19 @@ export default async function DashboardPage() {
               <Link href="/meal-planner" className="btn-ghost" style={{ textDecoration: 'none' }}>
                 Meal Planner
               </Link>
+            </div>
+            <div className="premium-hero__signal">
+              <span className={`badge ${weekOver ? 'badge-warn' : 'badge-good'}`}>
+                {weekOver ? 'Weekly budget over' : 'Weekly budget on track'}
+              </span>
+              <span className={`badge ${projectedOver ? 'badge-warn' : 'badge-neutral'}`}>
+                {projectedOver ? 'Projection above target' : 'Projection within target'}
+              </span>
+              {data.moDelta !== null && (
+                <span className={`badge ${data.moDelta > 0 ? 'badge-warn' : 'badge-good'}`}>
+                  {data.moDelta > 0 ? `+${data.moDelta}% vs last month` : `${data.moDelta}% vs last month`}
+                </span>
+              )}
             </div>
           </div>
 
@@ -166,46 +176,40 @@ export default async function DashboardPage() {
               pctUsed={data.pctUsed}
               totalReceipts={data.totalReceipts}
             />
-            <div className="premium-note">
-              <span className={`badge ${weekOver ? 'badge-warn' : 'badge-good'}`}>
-                {weekOver ? 'Weekly budget over' : 'Weekly budget on track'}
-              </span>
-              <span className={`badge ${projectedOver ? 'badge-warn' : 'badge-neutral'}`}>
-                {projectedOver ? 'Projection above target' : 'Projection within target'}
-              </span>
-              {data.moDelta !== null && (
-                <span className={`badge ${data.moDelta > 0 ? 'badge-warn' : 'badge-good'}`}>
-                  {data.moDelta > 0 ? `+${data.moDelta}% vs last month` : `${data.moDelta}% vs last month`}
-                </span>
-              )}
+            <div className="premium-stage__caption">
+              {weekOver
+                ? `${formatEuro(data.weekSpend - data.WEEKLY_BUDGET)} above weekly target.`
+                : `${formatEuro(data.WEEKLY_BUDGET - data.weekSpend)} still available this week.`}
             </div>
           </div>
         </div>
       </section>
 
       <section className="premium-lower animate-in" style={{ animationDelay: '220ms' }}>
-        <div className="premium-lower__lead">
-          <AiInsightsDashboard
-            projected={data.projected}
-            monthlyTarget={data.MONTHLY_TARGET}
-          />
-        </div>
-        <div className="premium-lower__support">
-          <ReviewQueueMonitor reminder={reviewReminder} />
-          <div className="premium-link-rail">
-            <Link href="/analysis" className="premium-link-tile">
-              <span className="premium-link-tile__eyebrow">Deep dive</span>
-              <span className="premium-link-tile__title">Analysis</span>
-            </Link>
-            <Link href="/receipts" className="premium-link-tile">
-              <span className="premium-link-tile__eyebrow">Operations</span>
-              <span className="premium-link-tile__title">Receipts</span>
-            </Link>
-            <Link href="/meal-planner" className="premium-link-tile">
-              <span className="premium-link-tile__eyebrow">Planning</span>
-              <span className="premium-link-tile__title">Meals</span>
-            </Link>
+        <div className="premium-summary">
+          <div className="card-label" style={{ marginBottom: 8 }}>Current position</div>
+          <div className="premium-summary__text">
+            {projectedOver
+              ? `At the current pace, month-end lands ${formatEuro(data.projected - data.MONTHLY_TARGET)} above target.`
+              : `At the current pace, month-end lands ${formatEuro(data.MONTHLY_TARGET - data.projected)} below target.`}
           </div>
+          <div className="premium-summary__meta">
+            {data.weekReceipts} receipt{data.weekReceipts !== 1 ? 's' : ''} this week. {formatEuro(data.weekSavings)} saved in bonus.
+          </div>
+        </div>
+        <div className="premium-link-rail">
+          <Link href="/analysis" className="premium-link-tile">
+            <span className="premium-link-tile__eyebrow">Deep dive</span>
+            <span className="premium-link-tile__title">Analysis</span>
+          </Link>
+          <Link href="/receipts" className="premium-link-tile">
+            <span className="premium-link-tile__eyebrow">Operations</span>
+            <span className="premium-link-tile__title">Receipts</span>
+          </Link>
+          <Link href="/meal-planner" className="premium-link-tile">
+            <span className="premium-link-tile__eyebrow">Planning</span>
+            <span className="premium-link-tile__title">Meals</span>
+          </Link>
         </div>
       </section>
     </div>

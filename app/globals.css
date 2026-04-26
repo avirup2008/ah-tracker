@@ -630,6 +630,12 @@ body {
   gap: 10px;
 }
 
+.premium-hero__signal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .premium-hero__metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -678,24 +684,41 @@ body {
   gap: 14px;
 }
 
-.premium-note {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.premium-stage__caption {
   padding-left: 6px;
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--text);
 }
 
 .premium-lower {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-  gap: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
   align-items: start;
 }
 
-.premium-lower__support {
+.premium-summary {
+  max-width: 760px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 10px;
+}
+
+.premium-summary__text {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 3.4vw, 3rem);
+  line-height: 0.96;
+  letter-spacing: -0.05em;
+  color: var(--text);
+}
+
+.premium-summary__meta {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-3);
 }
 
 .premium-link-rail {
@@ -854,6 +877,14 @@ body {
 
   .premium-link-rail {
     grid-template-columns: 1fr;
+  }
+
+  .premium-stage__caption {
+    font-size: 22px;
+  }
+
+  .premium-summary__text {
+    font-size: 2rem;
   }
 
   /* Stat bar: 2 columns on mobile instead of auto-fit */
