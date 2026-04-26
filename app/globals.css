@@ -186,9 +186,9 @@ body:has(.premium-home--cinematic) .app-shell__backdrop {
 }
 
 body:has(.premium-home--cinematic) .app-header__inner {
-  border-color: rgba(255,255,255,0.08);
-  background: linear-gradient(180deg, rgba(12, 16, 24, 0.9) 0%, rgba(16, 22, 32, 0.82) 100%);
-  box-shadow: 0 20px 60px rgba(3, 5, 10, 0.34);
+  border-color: rgba(255,255,255,0.05);
+  background: linear-gradient(180deg, rgba(10, 14, 21, 0.72) 0%, rgba(10, 14, 21, 0.62) 100%);
+  box-shadow: none;
 }
 
 body:has(.premium-home--cinematic) .app-brand__title,
@@ -207,13 +207,13 @@ body:has(.premium-home--cinematic) .app-nav__link {
 
 body:has(.premium-home--cinematic) .app-nav__link:hover,
 body:has(.premium-home--cinematic) .app-nav__link.active {
-  background: rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.035);
   border-color: rgba(243, 195, 123, 0.24);
 }
 
 body:has(.premium-home--cinematic) .app-week-chip {
   border-color: rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.025);
 }
 
 .app-brand {
@@ -933,11 +933,8 @@ body:has(.premium-home--cinematic) .app-week-chip {
 .premium-home--cinematic {
   padding: 20px 18px 36px;
   border-radius: 44px;
-  background:
-    radial-gradient(circle at 18% 18%, rgba(246, 167, 45, 0.08) 0%, transparent 22%),
-    radial-gradient(circle at 86% 10%, rgba(73, 96, 138, 0.16) 0%, transparent 24%),
-    linear-gradient(180deg, rgba(8, 12, 18, 0.98) 0%, rgba(10, 14, 21, 0.98) 36%, rgba(12, 17, 25, 0.99) 100%);
-  box-shadow: 0 34px 90px rgba(2, 4, 8, 0.44);
+  background: transparent;
+  box-shadow: none;
 }
 
 .premium-home__field {

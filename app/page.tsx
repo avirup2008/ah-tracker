@@ -85,6 +85,8 @@ export default async function DashboardPage() {
   const data = await getDashboardData()
   const weekOver = data.weekSpend > data.WEEKLY_BUDGET
   const projectedOver = data.projected > data.MONTHLY_TARGET
+  const weekDelta = Math.abs(data.WEEKLY_BUDGET - data.weekSpend)
+  const monthDelta = Math.abs(data.MONTHLY_TARGET - data.projected)
   const currentWeekSaturday = data.weeklyChart.at(-1)?.week_saturday
   const weekLabel = currentWeekSaturday
     ? new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(new Date(currentWeekSaturday))
@@ -103,13 +105,13 @@ export default async function DashboardPage() {
           <div className="premium-hero__copy">
             <div className="card-label" style={{ marginBottom: 0 }}>Dashboard</div>
             <h1 className="premium-hero__title">
-              Spend less.
+              {weekOver ? `${formatEuro(weekDelta)} over this week.` : `${formatEuro(weekDelta)} left this week.`}
               <br />
-              See it sooner.
+              {projectedOver ? `${formatEuro(monthDelta)} over by month-end.` : `${formatEuro(monthDelta)} under by month-end.`}
             </h1>
             <p className="premium-hero__body">
-              Weekly spend is {formatEuro(data.weekSpend)} against {formatEuro(data.WEEKLY_BUDGET)}.
-              Month projection sits at {formatEuro(data.projected)}.
+              Week {weekLabel} has {data.weekReceipts} receipt{data.weekReceipts !== 1 ? 's' : ''} logged.
+              Bonus saved so far: {formatEuro(data.weekSavings)}. Current month projection: {formatEuro(data.projected)}.
             </p>
             <div className="premium-hero__actions">
               <Link href="/receipts" className="btn-primary" style={{ textDecoration: 'none' }}>
