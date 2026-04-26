@@ -1,18 +1,10 @@
 import sql from '@/lib/db'
 import { SpendChartClient } from '@/components/dashboard/SpendChartClient'
 import { BudgetCard } from '@/components/dashboard/BudgetCard'
-import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown'
-import { RecentReceipts } from '@/components/dashboard/RecentReceipts'
-import { InflationTracker } from '@/components/dashboard/InflationTracker'
-import { MealPlanPreview } from '@/components/dashboard/MealPlanPreview'
-import { HealthStrip } from '@/components/dashboard/HealthStrip'
 import { AiInsightsDashboard } from '@/components/dashboard/AiInsightsDashboard'
 import { ReviewQueueMonitor } from '@/components/dashboard/ReviewQueueMonitor'
-import { BudgetAlertMonitor } from '@/components/dashboard/BudgetAlertMonitor'
-import { reconcileMealPlan } from '@/lib/reconciliation'
 import { getAutomationStatus } from '@/lib/automation-status'
 import { MONTHLY_TARGET, WEEKLY_BUDGET } from '@/lib/budget-constants'
-import { getInflationInsights } from '@/lib/product-intelligence'
 import Link from 'next/link'
 import { formatEuro } from '@/lib/utils'
 
@@ -31,7 +23,7 @@ async function getDashboardData() {
   const yr  = now.getFullYear()
   const mo  = now.getMonth() + 1
 
-  const [weekData, monthData, lastMonthData, weeklyChart, recentReceipts, categories, inflation, totalCount] =
+  const [weekData, monthData, lastMonthData, weeklyChart, totalCount] =
     await Promise.all([
       sql`
         SELECT week_saturday, COUNT(*) AS receipt_count,
@@ -63,29 +55,6 @@ async function getDashboardData() {
         FROM receipts WHERE parsed=true
         GROUP BY week_saturday ORDER BY week_saturday DESC LIMIT 16
       `,
-      sql`
-        SELECT r.id, r.filename,
-          TO_CHAR(r.receipt_date,'YYYY-MM-DD') AS receipt_date,
-          r.store_id, r.item_count,
-          r.net_grocery_spend, r.total_paid, r.bonus_savings,
-          r.parsed, r.parse_error,
-          COALESCE(s.store_name,'Unknown AH location') AS store_name
-        FROM receipts r
-        LEFT JOIN store_locations s ON r.store_id=s.store_id
-        WHERE r.parsed=true
-        ORDER BY r.receipt_date DESC, r.receipt_time DESC LIMIT 6
-      `,
-      sql`
-        SELECT ri.category,
-          ROUND(SUM(ri.total_price)::numeric,2) AS total,
-          COUNT(*) AS item_count
-        FROM receipt_items ri JOIN receipts r ON ri.receipt_id=r.id
-        WHERE r.parsed=true AND r.year=${yr} AND r.month=${mo}
-          AND ri.is_koopzegel=false AND ri.is_statiegeld=false
-          AND ri.category IS NOT NULL
-        GROUP BY ri.category ORDER BY total DESC LIMIT 7
-      `,
-      getInflationInsights(6),
       sql`SELECT COUNT(*) AS count FROM receipts`,
     ])
 
@@ -111,27 +80,13 @@ async function getDashboardData() {
     projected, pctUsed, moPct, moDelta, WEEKLY_BUDGET, MONTHLY_TARGET,
     today, daysInMo,
     weeklyChart:    plain([...weeklyChart].reverse()),
-    recentReceipts: plain(recentReceipts),
-    categories:     plain(categories),
-    inflation:      plain(inflation),
     totalReceipts:  parseInt(String(totalCount[0]?.count ?? '0')),
   }
 }
 
-async function getMealPlan() {
-  try {
-    const rows = await sql`SELECT * FROM meal_plans ORDER BY week_saturday DESC LIMIT 1`
-    return rows[0] ? JSON.parse(JSON.stringify(rows[0])) : null
-  } catch { return null }
-}
-
 export default async function DashboardPage() {
-  const [data, mealPlan] = await Promise.all([getDashboardData(), getMealPlan()])
-  const reconciliation = await reconcileMealPlan(mealPlan)
-  const [reviewReminder, budgetReminder] = await Promise.all([
-    getAutomationStatus('review_queue_reminder'),
-    getAutomationStatus('over_budget_alert'),
-  ])
+  const data = await getDashboardData()
+  const reviewReminder = await getAutomationStatus('review_queue_reminder')
   const weekOver = data.weekSpend > data.WEEKLY_BUDGET
   const projectedOver = data.projected > data.MONTHLY_TARGET
   const currentWeekSaturday = data.weeklyChart.at(-1)?.week_saturday
@@ -140,31 +95,27 @@ export default async function DashboardPage() {
     : 'Current week'
 
   return (
-    <div className="flex flex-col gap-6">
-      <section className="card p-5 md:p-6">
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div className="flex flex-col gap-2">
-              <div className="card-label" style={{ marginBottom: 0 }}>Dashboard</div>
-              <div
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: 'clamp(1.75rem, 3vw, 2.5rem)',
-                  lineHeight: 0.98,
-                  letterSpacing: '-0.045em',
-                  color: 'var(--text)',
-                }}
-              >
-                Spend and review at a glance.
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
+    <div className="flex flex-col gap-8">
+      <section className="premium-hero animate-in">
+        <div className="premium-hero__orb premium-hero__orb--one" />
+        <div className="premium-hero__orb premium-hero__orb--two" />
+        <div className="premium-hero__grid">
+          <div className="premium-hero__copy">
+            <div className="card-label" style={{ marginBottom: 0 }}>Dashboard</div>
+            <h1 className="premium-hero__title">
+              Grocery control,
+              <br />
+              week by week.
+            </h1>
+            <p className="premium-hero__body">
+              Weekly spend is {formatEuro(data.weekSpend)}. Month projection is {formatEuro(data.projected)}.
+            </p>
+            <div className="premium-hero__actions">
               <Link href="/receipts" className="btn-primary" style={{ textDecoration: 'none' }}>
                 Review Receipts
               </Link>
               <Link href="/analysis" className="btn-ghost" style={{ textDecoration: 'none' }}>
-                Analysis
+                Open Analysis
               </Link>
               <Link href="/meal-planner" className="btn-ghost" style={{ textDecoration: 'none' }}>
                 Meal Planner
@@ -172,7 +123,7 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="premium-hero__metrics">
             <HeroStat
               label={`Week of ${weekLabel}`}
               value={formatEuro(data.weekSpend)}
@@ -197,71 +148,66 @@ export default async function DashboardPage() {
               detail={`${data.weekReceipts} receipt${data.weekReceipts !== 1 ? 's' : ''} this week`}
             />
           </div>
+        </div>
+      </section>
 
-          <div className="flex flex-wrap gap-2">
-            <span className={`badge ${weekOver ? 'badge-warn' : 'badge-good'}`}>
-              {weekOver ? 'Weekly budget over' : 'Weekly budget on track'}
-            </span>
-            <span className={`badge ${projectedOver ? 'badge-warn' : 'badge-neutral'}`}>
-              {projectedOver ? 'Projection above target' : 'Projection within target'}
-            </span>
-            {data.moDelta !== null && (
-              <span className={`badge ${data.moDelta > 0 ? 'badge-warn' : 'badge-good'}`}>
-                {data.moDelta > 0 ? `+${data.moDelta}% vs last month` : `${data.moDelta}% vs last month`}
+      <section className="premium-stage animate-in" style={{ animationDelay: '120ms' }}>
+        <div className="premium-stage__grid">
+          <div className="premium-stage__primary">
+            <SpendChartClient data={data.weeklyChart} weekBudget={data.WEEKLY_BUDGET} />
+          </div>
+          <div className="premium-stage__side">
+            <BudgetCard
+              weekSpend={data.weekSpend}
+              weekBudget={data.WEEKLY_BUDGET}
+              weekSavings={data.weekSavings}
+              weekReceipts={data.weekReceipts}
+              monthSpend={data.monthSpend}
+              pctUsed={data.pctUsed}
+              totalReceipts={data.totalReceipts}
+            />
+            <div className="premium-note">
+              <span className={`badge ${weekOver ? 'badge-warn' : 'badge-good'}`}>
+                {weekOver ? 'Weekly budget over' : 'Weekly budget on track'}
               </span>
-            )}
-            {reviewReminder?.message && (
-              <span className="badge badge-neutral">
-                {reviewReminder.message}
+              <span className={`badge ${projectedOver ? 'badge-warn' : 'badge-neutral'}`}>
+                {projectedOver ? 'Projection above target' : 'Projection within target'}
               </span>
-            )}
+              {data.moDelta !== null && (
+                <span className={`badge ${data.moDelta > 0 ? 'badge-warn' : 'badge-good'}`}>
+                  {data.moDelta > 0 ? `+${data.moDelta}% vs last month` : `${data.moDelta}% vs last month`}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </section>
 
-      <HealthStrip
-        weekSpend={data.weekSpend}
-        weekBudget={data.WEEKLY_BUDGET}
-        monthSpend={data.monthSpend}
-        projected={data.projected}
-        monthlyTarget={data.MONTHLY_TARGET}
-        moDelta={data.moDelta}
-        lastMonthSpend={data.lastMonthSpend}
-        today={data.today}
-        daysInMo={data.daysInMo}
-      />
-
-      <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4 items-start">
-        <SpendChartClient data={data.weeklyChart} weekBudget={data.WEEKLY_BUDGET} />
-        <BudgetCard
-          weekSpend={data.weekSpend}
-          weekBudget={data.WEEKLY_BUDGET}
-          weekSavings={data.weekSavings}
-          weekReceipts={data.weekReceipts}
-          monthSpend={data.monthSpend}
-          pctUsed={data.pctUsed}
-          totalReceipts={data.totalReceipts}
-        />
-      </div>
-
-      <AiInsightsDashboard
-        projected={data.projected}
-        monthlyTarget={data.MONTHLY_TARGET}
-      />
-
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_0.92fr] gap-4 items-start">
-        <CategoryBreakdown categories={data.categories} />
-        <InflationTracker items={data.inflation} />
-      </div>
-
-      <RecentReceipts receipts={data.recentReceipts} />
-
-      <div className="grid grid-cols-1 xl:grid-cols-[0.92fr_1.08fr] gap-4 items-start">
-        <MealPlanPreview mealPlan={mealPlan} reconciliation={reconciliation} />
-        <ReviewQueueMonitor reminder={reviewReminder} />
-      </div>
-
-      <BudgetAlertMonitor reminder={budgetReminder} />
+      <section className="premium-lower animate-in" style={{ animationDelay: '220ms' }}>
+        <div className="premium-lower__lead">
+          <AiInsightsDashboard
+            projected={data.projected}
+            monthlyTarget={data.MONTHLY_TARGET}
+          />
+        </div>
+        <div className="premium-lower__support">
+          <ReviewQueueMonitor reminder={reviewReminder} />
+          <div className="premium-link-rail">
+            <Link href="/analysis" className="premium-link-tile">
+              <span className="premium-link-tile__eyebrow">Deep dive</span>
+              <span className="premium-link-tile__title">Analysis</span>
+            </Link>
+            <Link href="/receipts" className="premium-link-tile">
+              <span className="premium-link-tile__eyebrow">Operations</span>
+              <span className="premium-link-tile__title">Receipts</span>
+            </Link>
+            <Link href="/meal-planner" className="premium-link-tile">
+              <span className="premium-link-tile__eyebrow">Planning</span>
+              <span className="premium-link-tile__title">Meals</span>
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   )
 }
