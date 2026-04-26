@@ -1007,6 +1007,7 @@ body {
 .premium-home--cinematic .premium-stage__caption,
 .premium-home--cinematic .premium-link-tile__title,
 .premium-home--cinematic .budget-monolith__amount,
+.premium-home--cinematic .budget-monolith__kpi-value--default,
 .premium-home--cinematic .display-num,
 .premium-home--cinematic .mono {
   color: #f4efe6;
@@ -1024,8 +1025,13 @@ body {
 .premium-home--cinematic .showcase-scene__signal-label,
 .premium-home--cinematic .premium-link-tile__eyebrow,
 .premium-home--cinematic .budget-monolith__meta,
-.premium-home--cinematic .budget-monolith__kpi div:last-child {
+.premium-home--cinematic .budget-monolith__kpi-label,
+.premium-home--cinematic .budget-monolith__subline span {
   color: rgba(150, 165, 192, 0.68) !important;
+}
+
+.premium-home--cinematic .budget-monolith__subline strong {
+  color: #f4efe6;
 }
 
 .premium-home--cinematic .premium-hero__signal .badge-neutral {
@@ -1168,6 +1174,22 @@ body {
   border-radius: 18px;
   padding: 14px;
   background: rgba(255,255,255,0.22);
+}
+
+.budget-monolith__kpi-value--default {
+  color: var(--text);
+}
+
+.budget-monolith__kpi-value--good {
+  color: var(--good);
+}
+
+.budget-monolith__kpi-value--warn {
+  color: var(--warn);
+}
+
+.budget-monolith__kpi-label {
+  color: var(--text-4);
 }
 
 .premium-link-tile__eyebrow {

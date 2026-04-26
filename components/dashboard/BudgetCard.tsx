@@ -70,23 +70,21 @@ export function BudgetCard({
 }
 
 function KPI({ value, label, highlight }: { value: string; label: string; highlight?: 'good' | 'warn' }) {
+  const toneClass = highlight === 'good'
+    ? 'budget-monolith__kpi-value--good'
+    : highlight === 'warn'
+      ? 'budget-monolith__kpi-value--warn'
+      : 'budget-monolith__kpi-value--default'
+
   return (
-    <div
-      className="budget-monolith__kpi"
-    >
+    <div className="budget-monolith__kpi">
       <div
-        className="mono"
-        style={{
-          fontSize: 16,
-          fontWeight: 600,
-          color: highlight === 'good' ? 'var(--good)'
-               : highlight === 'warn' ? 'var(--warn)'
-               : 'var(--text)',
-        }}
+        className={`mono budget-monolith__kpi-value ${toneClass}`}
+        style={{ fontSize: 16, fontWeight: 600 }}
       >
         {value}
       </div>
-      <div style={{ fontSize: 10, color: 'var(--text-4)', marginTop: 2, fontFamily: 'var(--font-body)' }}>
+      <div className="budget-monolith__kpi-label" style={{ fontSize: 10, marginTop: 2, fontFamily: 'var(--font-body)' }}>
         {label}
       </div>
     </div>
