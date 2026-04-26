@@ -508,7 +508,105 @@ export default function ReceiptsPage() {
   const someVisibleSelected = selectedReceiptIds.length > 0
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
+      {summary && (
+        <section
+          className="card p-5 md:p-6"
+          style={{
+            overflow: 'hidden',
+            background: 'linear-gradient(135deg, color-mix(in srgb, var(--surface) 88%, transparent) 0%, color-mix(in srgb, var(--accent-dim) 32%, var(--surface2)) 55%, color-mix(in srgb, var(--primary-light) 36%, var(--surface)) 100%)',
+          }}
+        >
+          <div className="grid grid-cols-1 xl:grid-cols-[1.35fr_0.95fr] gap-6 items-stretch">
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-3">
+                <div className="card-label" style={{ marginBottom: 0 }}>Receipt Operations</div>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-display)',
+                    fontSize: 'clamp(2rem, 4vw, 3.45rem)',
+                    lineHeight: 0.95,
+                    letterSpacing: '-0.05em',
+                    color: 'var(--text)',
+                    maxWidth: 720,
+                  }}
+                >
+                  Parse, review, and clean your grocery ledger in one workspace.
+                </div>
+                <p style={{ maxWidth: 640, fontSize: 14, lineHeight: 1.65, color: 'var(--text-3)', margin: 0 }}>
+                  {summary.total} receipts loaded across {summary.dateMin ? formatDate(summary.dateMin, 'MMM yyyy') : 'your history'} to {summary.dateMax ? formatDate(summary.dateMax, 'MMM yyyy') : 'now'}.
+                  {summary.errors > 0 ? ` ${summary.errors} still need attention.` : ' The queue is clear enough to focus on precision rather than cleanup.'}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <HeroMetric label="Total receipts" value={String(summary.total)} detail={`${summary.parsed} parsed`} />
+                <HeroMetric label="All-time spend" value={formatEuro(summary.totalSpend)} detail={`${formatEuro(summary.avgPerWeek)} avg weekly`} />
+                <HeroMetric label="Bonus saved" value={formatEuro(summary.totalSavings)} detail="captured from receipts" tone="good" />
+                <HeroMetric
+                  label="Queue pressure"
+                  value={`${summary.errors + summary.pending}`}
+                  detail={summary.errors > 0 ? `${summary.errors} errors live` : 'mostly stable'}
+                  tone={summary.errors > 0 ? 'warn' : undefined}
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <button className="btn-primary" onClick={fetchReceipts}>
+                  Refresh Workspace
+                </button>
+                <button className="btn-ghost" onClick={parsePending} disabled={parsingPending}>
+                  {parsingPending ? 'Parsing…' : 'Parse Pending'}
+                </button>
+              </div>
+            </div>
+
+            <div
+              className="rounded-[18px] border p-4 md:p-5 flex flex-col gap-4"
+              style={{
+                background: 'color-mix(in srgb, var(--surface) 82%, transparent)',
+                borderColor: 'color-mix(in srgb, var(--primary) 12%, var(--border))',
+              }}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="card-label" style={{ marginBottom: 6 }}>Current Focus</div>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-body)' }}>
+                    {selectedReceiptIds.length > 0
+                      ? `${selectedReceiptIds.length} receipts selected for bulk action`
+                      : selectedId
+                        ? 'Receipt review panel is active'
+                        : 'No receipt selected'}
+                  </div>
+                </div>
+                <span className={`badge ${summary.errors > 0 ? 'badge-warn' : 'badge-good'}`}>
+                  {summary.errors > 0 ? 'Review active' : 'Stable queue'}
+                </span>
+              </div>
+
+              <SpotlightLine
+                title="Bulk actions"
+                body={selectedReceiptIds.length > 0
+                  ? 'Use the selected receipts to retry parse, run AI categorisation, or remove bad uploads in one pass.'
+                  : 'Select one or more receipts in the table to unlock batch repair and cleanup actions.'}
+              />
+              <SpotlightLine
+                title="Review queue"
+                body={reviewQueue[0]
+                  ? `${reviewQueue.length} receipts remain in the queue. Top issue: ${reviewQueue[0].review.reasons[0] ?? 'Needs review'}.`
+                  : 'No priority receipts are waiting for review right now.'}
+              />
+              <SpotlightLine
+                title="Editor flow"
+                body={selectedId
+                  ? 'The lower panel is dedicated to one selected receipt, with parse retry, AI categorisation, and manual correction in the same place.'
+                  : 'Pick a receipt from the table to open the full editor and diagnostics below.'}
+              />
+            </div>
+          </div>
+        </section>
+      )}
+
       {summary && (
         <div className="stat-bar animate-in">
           <div className="stat-bar-item">
@@ -544,22 +642,30 @@ export default function ReceiptsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px_440px] gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-4 items-start">
         <div className="card p-5">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <span className="card-label" style={{ marginBottom: 0 }}>All Receipts ({total})</span>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+            <div>
+              <span className="card-label" style={{ marginBottom: 4 }}>Receipt Ledger</span>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-body)' }}>
+                All Receipts ({total})
+              </div>
+            </div>
             <button className="btn-ghost" onClick={fetchReceipts} style={{ fontSize: 11 }}>↻ Refresh</button>
           </div>
 
           <div
-            className="rounded-[var(--radius-sm)] border p-3"
-            style={{ background: 'var(--surface2)', borderColor: 'var(--border)', marginBottom: 14 }}
+            className="rounded-[16px] border p-4"
+            style={{ background: 'color-mix(in srgb, var(--surface2) 82%, transparent)', borderColor: 'var(--border)', marginBottom: 16 }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
               <div>
-                <div className="card-label" style={{ marginBottom: 2 }}>Bulk Actions</div>
-                <div style={{ fontSize: 11.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)' }}>
-                  {selectedReceiptIds.length} selected
+                <div className="card-label" style={{ marginBottom: 4 }}>Bulk Actions</div>
+                <div style={{ fontSize: 14, color: 'var(--text)', fontFamily: 'var(--font-body)', fontWeight: 600 }}>
+                  {selectedReceiptIds.length} receipt{selectedReceiptIds.length === 1 ? '' : 's'} selected
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-4)', fontFamily: 'var(--font-body)', marginTop: 3 }}>
+                  Use batch tools to clean failed imports and speed up review.
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -628,7 +734,7 @@ export default function ReceiptsPage() {
                       onClick={() => fetchDetail(receipt.id)}
                       style={{
                         cursor: 'pointer',
-                        background: selectedId === receipt.id ? 'var(--surface2)' : undefined,
+                        background: selectedId === receipt.id ? 'color-mix(in srgb, var(--accent-dim) 42%, var(--surface2))' : undefined,
                       }}
                     >
                       <td onClick={(event) => event.stopPropagation()}>
@@ -665,7 +771,12 @@ export default function ReceiptsPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div className="card p-5">
-            <div className="card-label">Upload Receipts</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
+              <div className="card-label" style={{ marginBottom: 0 }}>Receipt Intake</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-body)' }}>
+                Upload Receipts
+              </div>
+            </div>
             <div
               onDragOver={(event) => { event.preventDefault(); setIsDragging(true) }}
               onDragLeave={() => setIsDragging(false)}
@@ -701,7 +812,12 @@ export default function ReceiptsPage() {
           </div>
 
           <div className="card p-5">
-            <div className="card-label">Bulk Parse</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
+              <div className="card-label" style={{ marginBottom: 0 }}>Parser Queue</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-body)' }}>
+                Bulk Parse
+              </div>
+            </div>
             <p style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginBottom: 14 }}>
               Parse all pending receipts. Use manual review when a parsed receipt needs correction.
             </p>
@@ -717,7 +833,12 @@ export default function ReceiptsPage() {
           </div>
 
           <div className="card p-5">
-            <div className="card-label">Review Queue</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
+              <div className="card-label" style={{ marginBottom: 0 }}>Priority Monitor</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-body)' }}>
+                Review Queue
+              </div>
+            </div>
             <p style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginBottom: 14 }}>
               Prioritized receipts with parse failures, low-confidence fields, or missing item metadata.
             </p>
@@ -749,10 +870,16 @@ export default function ReceiptsPage() {
             )}
           </div>
         </div>
+      </div>
 
-        <div className="card p-5" style={{ minHeight: 420 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div className="card-label" style={{ marginBottom: 0 }}>Receipt Review</div>
+      <div className="card p-5 md:p-6" style={{ minHeight: 420 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
+            <div>
+              <div className="card-label" style={{ marginBottom: 4 }}>Receipt Review</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-body)' }}>
+                Detailed Correction Workspace
+              </div>
+            </div>
             {selectedId && (
               <button className="btn-ghost" style={{ fontSize: 11 }} onClick={() => fetchDetail(selectedId)}>
                 ↻ Reload
@@ -957,7 +1084,61 @@ export default function ReceiptsPage() {
               </div>
             </div>
           )}
-        </div>
+      </div>
+    </div>
+  )
+}
+
+function HeroMetric({
+  label,
+  value,
+  detail,
+  tone,
+}: {
+  label: string
+  value: string
+  detail: string
+  tone?: 'good' | 'warn'
+}) {
+  return (
+    <div
+      className="rounded-[18px] border p-4"
+      style={{
+        background: 'color-mix(in srgb, var(--surface) 84%, transparent)',
+        borderColor: 'color-mix(in srgb, var(--text) 8%, var(--border))',
+      }}
+    >
+      <div className="card-label" style={{ marginBottom: 6 }}>{label}</div>
+      <div
+        className="mono"
+        style={{
+          fontSize: 24,
+          fontWeight: 700,
+          color: tone === 'warn' ? 'var(--warn)' : tone === 'good' ? 'var(--good)' : 'var(--text)',
+          letterSpacing: '-0.03em',
+        }}
+      >
+        {value}
+      </div>
+      <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--text-3)', lineHeight: 1.5 }}>
+        {detail}
+      </div>
+    </div>
+  )
+}
+
+function SpotlightLine({ title, body }: { title: string; body: string }) {
+  return (
+    <div
+      className="rounded-[16px] border p-3.5"
+      style={{
+        background: 'color-mix(in srgb, var(--surface2) 74%, transparent)',
+        borderColor: 'color-mix(in srgb, var(--primary) 10%, var(--border))',
+      }}
+    >
+      <div className="card-label" style={{ marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.6 }}>
+        {body}
       </div>
     </div>
   )
