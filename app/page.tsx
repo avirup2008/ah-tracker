@@ -143,59 +143,22 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <section
-        className="card p-5 md:p-6"
-        style={{
-          overflow: 'hidden',
-          background: 'linear-gradient(135deg, color-mix(in srgb, var(--surface) 90%, transparent) 0%, color-mix(in srgb, var(--accent-dim) 28%, var(--surface2)) 48%, color-mix(in srgb, var(--primary-light) 38%, var(--surface)) 100%)',
-        }}
-      >
-        <div className="grid grid-cols-1 xl:grid-cols-[1.45fr_0.95fr] gap-6 items-stretch">
-          <div className="flex flex-col gap-5">
-            <div className="flex flex-col gap-3">
-              <div className="card-label" style={{ marginBottom: 0 }}>Grocery Control Room</div>
+      <section className="card p-5 md:p-6">
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div className="flex flex-col gap-2">
+              <div className="card-label" style={{ marginBottom: 0 }}>Dashboard</div>
               <div
                 style={{
                   fontFamily: 'var(--font-display)',
-                  fontSize: 'clamp(2rem, 4vw, 3.7rem)',
-                  lineHeight: 0.94,
-                  letterSpacing: '-0.05em',
+                  fontSize: 'clamp(1.75rem, 3vw, 2.5rem)',
+                  lineHeight: 0.98,
+                  letterSpacing: '-0.045em',
                   color: 'var(--text)',
-                  maxWidth: 760,
                 }}
               >
-                A cleaner view of spend, drift, and the next weekly move.
+                Spend and review at a glance.
               </div>
-              <p style={{ maxWidth: 640, fontSize: 14, lineHeight: 1.65, color: 'var(--text-3)', margin: 0 }}>
-                This week sits at {formatEuro(data.weekSpend)} against a {formatEuro(data.WEEKLY_BUDGET)} budget.
-                Month projection is {formatEuro(data.projected)}{projectedOver ? ', so attention should go to spend control and review cleanup.' : ', so the main focus is consistency and savings capture.'}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <HeroStat
-                label={`Week of ${weekLabel}`}
-                value={formatEuro(data.weekSpend)}
-                tone={weekOver ? 'warn' : 'good'}
-                detail={weekOver ? `${formatEuro(data.weekSpend - data.WEEKLY_BUDGET)} over target` : `${formatEuro(data.WEEKLY_BUDGET - data.weekSpend)} left`}
-              />
-              <HeroStat
-                label="Month to date"
-                value={formatEuro(data.monthSpend)}
-                detail={`${data.today} of ${data.daysInMo} days logged`}
-              />
-              <HeroStat
-                label="Projection"
-                value={formatEuro(data.projected)}
-                tone={projectedOver ? 'warn' : 'good'}
-                detail={projectedOver ? `${formatEuro(data.projected - data.MONTHLY_TARGET)} over target` : `${formatEuro(data.MONTHLY_TARGET - data.projected)} under target`}
-              />
-              <HeroStat
-                label="Bonus saved"
-                value={formatEuro(data.weekSavings)}
-                tone="good"
-                detail={`${data.weekReceipts} receipt${data.weekReceipts !== 1 ? 's' : ''} this week`}
-              />
             </div>
 
             <div className="flex flex-wrap gap-3">
@@ -203,53 +166,57 @@ export default async function DashboardPage() {
                 Review Receipts
               </Link>
               <Link href="/analysis" className="btn-ghost" style={{ textDecoration: 'none' }}>
-                Open Analysis
+                Analysis
               </Link>
               <Link href="/meal-planner" className="btn-ghost" style={{ textDecoration: 'none' }}>
-                Plan Meals
+                Meal Planner
               </Link>
             </div>
           </div>
 
-          <div
-            className="rounded-[18px] border p-4 md:p-5 flex flex-col gap-4"
-            style={{
-              background: 'color-mix(in srgb, var(--surface) 82%, transparent)',
-              borderColor: 'color-mix(in srgb, var(--primary) 12%, var(--border))',
-            }}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="card-label" style={{ marginBottom: 6 }}>Priority Snapshot</div>
-                <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-body)' }}>
-                  {projectedOver ? 'Budget pressure is rising' : 'Budget is stable'}
-                </div>
-              </div>
-              <span className={`badge ${projectedOver ? 'badge-warn' : 'badge-good'}`}>
-                {projectedOver ? 'Watch spend' : 'On track'}
-              </span>
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <HeroStat
+              label={`Week of ${weekLabel}`}
+              value={formatEuro(data.weekSpend)}
+              tone={weekOver ? 'warn' : 'good'}
+              detail={weekOver ? `${formatEuro(data.weekSpend - data.WEEKLY_BUDGET)} over budget` : `${formatEuro(data.WEEKLY_BUDGET - data.weekSpend)} remaining`}
+            />
+            <HeroStat
+              label="Month to date"
+              value={formatEuro(data.monthSpend)}
+              detail={`${data.today} of ${data.daysInMo} days logged`}
+            />
+            <HeroStat
+              label="Projection"
+              value={formatEuro(data.projected)}
+              tone={projectedOver ? 'warn' : undefined}
+              detail={projectedOver ? `${formatEuro(data.projected - data.MONTHLY_TARGET)} above target` : `${formatEuro(data.MONTHLY_TARGET - data.projected)} below target`}
+            />
+            <HeroStat
+              label="Bonus saved"
+              value={formatEuro(data.weekSavings)}
+              tone="good"
+              detail={`${data.weekReceipts} receipt${data.weekReceipts !== 1 ? 's' : ''} this week`}
+            />
+          </div>
 
-            <div className="flex flex-col gap-3">
-              <SpotlightRow
-                title="Weekly budget"
-                body={weekOver
-                  ? `You are above plan for the current week. Focus first on review queue cleanup and short-term spend control.`
-                  : `You still have room this week. Use it carefully rather than letting projection drift later in the month.`}
-              />
-              <SpotlightRow
-                title="Monthly direction"
-                body={data.moDelta === null
-                  ? 'Month-over-month trend will appear once there is comparable prior data.'
-                  : data.moDelta > 0
-                    ? `Spending is ${data.moDelta}% above last month, which makes normalization and habit visibility more important.`
-                    : `Spending is ${Math.abs(data.moDelta)}% below last month, which suggests the current operating rhythm is improving.`}
-              />
-              <SpotlightRow
-                title="Operational focus"
-                body={reviewReminder?.message ?? 'No review automation summary recorded yet.'}
-              />
-            </div>
+          <div className="flex flex-wrap gap-2">
+            <span className={`badge ${weekOver ? 'badge-warn' : 'badge-good'}`}>
+              {weekOver ? 'Weekly budget over' : 'Weekly budget on track'}
+            </span>
+            <span className={`badge ${projectedOver ? 'badge-warn' : 'badge-neutral'}`}>
+              {projectedOver ? 'Projection above target' : 'Projection within target'}
+            </span>
+            {data.moDelta !== null && (
+              <span className={`badge ${data.moDelta > 0 ? 'badge-warn' : 'badge-good'}`}>
+                {data.moDelta > 0 ? `+${data.moDelta}% vs last month` : `${data.moDelta}% vs last month`}
+              </span>
+            )}
+            {reviewReminder?.message && (
+              <span className="badge badge-neutral">
+                {reviewReminder.message}
+              </span>
+            )}
           </div>
         </div>
       </section>
@@ -322,7 +289,7 @@ function HeroStat({
     <div
       className="rounded-[18px] border p-4"
       style={{
-        background: 'color-mix(in srgb, var(--surface) 84%, transparent)',
+        background: 'color-mix(in srgb, var(--surface2) 78%, transparent)',
         borderColor: 'color-mix(in srgb, var(--text) 8%, var(--border))',
       }}
     >
@@ -340,23 +307,6 @@ function HeroStat({
       </div>
       <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--text-3)', lineHeight: 1.5 }}>
         {detail}
-      </div>
-    </div>
-  )
-}
-
-function SpotlightRow({ title, body }: { title: string; body: string }) {
-  return (
-    <div
-      className="rounded-[16px] border p-3.5"
-      style={{
-        background: 'color-mix(in srgb, var(--surface2) 74%, transparent)',
-        borderColor: 'color-mix(in srgb, var(--primary) 10%, var(--border))',
-      }}
-    >
-      <div className="card-label" style={{ marginBottom: 6 }}>{title}</div>
-      <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.6 }}>
-        {body}
       </div>
     </div>
   )
