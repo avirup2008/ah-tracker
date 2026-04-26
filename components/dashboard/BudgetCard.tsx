@@ -20,16 +20,15 @@ export function BudgetCard({
   const overBudget = weekSpend > weekBudget
 
   return (
-    <div className="card p-5 flex flex-col gap-4">
+    <div className="budget-monolith">
       <div className="card-label">Weekly Budget</div>
 
-      {/* Main number */}
-      <div>
-        <div className="display-num" style={{ fontSize: 46 }}>
+      <div className="budget-monolith__hero">
+        <div className="display-num budget-monolith__amount">
           <span style={{ fontSize: 22, fontWeight: 400, color: 'var(--text-3)' }}>€</span>
           {Number(weekSpend).toFixed(2).replace('.', ',')}
         </div>
-        <div className="mt-1" style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)' }}>
+        <div className="budget-monolith__subline">
           of <strong style={{ color: 'var(--text-2)' }}>{formatEuro(weekBudget)}</strong> target
           {' · '}
           <strong style={{ color: overBudget ? 'var(--warn)' : 'var(--good)' }}>
@@ -38,9 +37,8 @@ export function BudgetCard({
         </div>
       </div>
 
-      {/* Gauge */}
-      <div>
-        <div className="gauge-track">
+      <div className="budget-monolith__rail">
+        <div className="gauge-track budget-monolith__gauge">
           <div
             className="gauge-fill"
             style={{
@@ -49,7 +47,7 @@ export function BudgetCard({
             }}
           />
         </div>
-        <div className="flex justify-between mt-1.5" style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--text-4)' }}>
+        <div className="budget-monolith__meta">
           <span style={{ color: overBudget ? 'var(--warn)' : 'var(--accent)', fontWeight: 600 }}>
             {pctUsed}% used
           </span>
@@ -57,8 +55,7 @@ export function BudgetCard({
         </div>
       </div>
 
-      {/* KPI grid */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="budget-monolith__grid">
         <KPI value={formatEuro(monthSpend)} label="Month spend" />
         <KPI value={formatEuro(weekSavings)} label="Bonus saved" highlight="good" />
         <KPI value={String(totalReceipts)} label="Receipts loaded" />
@@ -75,8 +72,7 @@ export function BudgetCard({
 function KPI({ value, label, highlight }: { value: string; label: string; highlight?: 'good' | 'warn' }) {
   return (
     <div
-      className="rounded-[var(--radius-sm)] p-3 border"
-      style={{ background: 'var(--surface2)', borderColor: 'var(--border)' }}
+      className="budget-monolith__kpi"
     >
       <div
         className="mono"

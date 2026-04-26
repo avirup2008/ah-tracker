@@ -91,7 +91,10 @@ export default async function DashboardPage() {
     : 'Current week'
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="premium-home flex flex-col gap-8">
+      <div className="premium-home__veil premium-home__veil--left" />
+      <div className="premium-home__veil premium-home__veil--right" />
+      <div className="premium-home__grain" />
       <section className="premium-hero animate-in">
         <div className="premium-hero__orb premium-hero__orb--one" />
         <div className="premium-hero__orb premium-hero__orb--two" />
