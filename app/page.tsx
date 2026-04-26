@@ -233,7 +233,7 @@ export default async function DashboardPage() {
         daysInMo={data.daysInMo}
       />
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4 items-start">
         <div className="flex flex-col gap-4">
           <SpendChartClient data={data.weeklyChart} weekBudget={data.WEEKLY_BUDGET} />
           <AiInsightsDashboard
@@ -256,12 +256,12 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_0.92fr] gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_0.92fr] gap-4 items-start">
         <CategoryBreakdown categories={data.categories} />
         <InflationTracker items={data.inflation} />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[0.92fr_1.08fr] gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-[0.92fr_1.08fr] gap-4 items-start">
         <MealPlanPreview mealPlan={mealPlan} reconciliation={reconciliation} />
         <div className="grid grid-cols-1 gap-4">
           <ReviewQueueMonitor reminder={reviewReminder} />
