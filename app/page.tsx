@@ -234,40 +234,36 @@ export default async function DashboardPage() {
       />
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4 items-start">
-        <div className="flex flex-col gap-4">
-          <SpendChartClient data={data.weeklyChart} weekBudget={data.WEEKLY_BUDGET} />
-          <AiInsightsDashboard
-            projected={data.projected}
-            monthlyTarget={data.MONTHLY_TARGET}
-          />
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <BudgetCard
-            weekSpend={data.weekSpend}
-            weekBudget={data.WEEKLY_BUDGET}
-            weekSavings={data.weekSavings}
-            weekReceipts={data.weekReceipts}
-            monthSpend={data.monthSpend}
-            pctUsed={data.pctUsed}
-            totalReceipts={data.totalReceipts}
-          />
-          <RecentReceipts receipts={data.recentReceipts} />
-        </div>
+        <SpendChartClient data={data.weeklyChart} weekBudget={data.WEEKLY_BUDGET} />
+        <BudgetCard
+          weekSpend={data.weekSpend}
+          weekBudget={data.WEEKLY_BUDGET}
+          weekSavings={data.weekSavings}
+          weekReceipts={data.weekReceipts}
+          monthSpend={data.monthSpend}
+          pctUsed={data.pctUsed}
+          totalReceipts={data.totalReceipts}
+        />
       </div>
+
+      <AiInsightsDashboard
+        projected={data.projected}
+        monthlyTarget={data.MONTHLY_TARGET}
+      />
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_0.92fr] gap-4 items-start">
         <CategoryBreakdown categories={data.categories} />
         <InflationTracker items={data.inflation} />
       </div>
 
+      <RecentReceipts receipts={data.recentReceipts} />
+
       <div className="grid grid-cols-1 xl:grid-cols-[0.92fr_1.08fr] gap-4 items-start">
         <MealPlanPreview mealPlan={mealPlan} reconciliation={reconciliation} />
-        <div className="grid grid-cols-1 gap-4">
-          <ReviewQueueMonitor reminder={reviewReminder} />
-          <BudgetAlertMonitor reminder={budgetReminder} />
-        </div>
+        <ReviewQueueMonitor reminder={reviewReminder} />
       </div>
+
+      <BudgetAlertMonitor reminder={budgetReminder} />
 
       <AutomationCenter statuses={automationStatuses} />
     </div>
