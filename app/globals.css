@@ -187,8 +187,8 @@ body:has(.premium-home--cinematic) .app-shell__backdrop {
 }
 
 body:has(.premium-home--cinematic) .app-header__inner {
-  border-color: rgba(255,255,255,0.05);
-  background: linear-gradient(180deg, rgba(11, 16, 24, 0.94) 0%, rgba(11, 16, 24, 0.9) 100%);
+  border-color: transparent;
+  background: transparent;
   box-shadow: none;
 }
 
@@ -1067,9 +1067,9 @@ body:has(.premium-home--cinematic) .page-frame {
 }
 
 .premium-home--cinematic .premium-stat {
-  background: rgba(255, 255, 255, 0.045);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .premium-home--cinematic .premium-stat--good .mono {
@@ -1148,28 +1148,25 @@ body:has(.premium-home--cinematic) .page-frame {
 }
 
 .premium-home--cinematic .showcase-scene {
-  background:
-    radial-gradient(circle at 18% 14%, rgba(255, 182, 72, 0.11) 0%, transparent 26%),
-    radial-gradient(circle at 88% 68%, rgba(102, 130, 177, 0.17) 0%, transparent 26%),
-    linear-gradient(180deg, rgba(9, 14, 21, 0.94) 0%, rgba(12, 18, 27, 0.92) 100%);
-  border-color: rgba(255,255,255,0.08);
-  box-shadow: 0 36px 100px rgba(3, 5, 10, 0.44);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .premium-home--cinematic .showcase-scene::after {
-  background: rgba(94, 118, 167, 0.2);
+  display: none;
 }
 
 .premium-home--cinematic .showcase-scene::before {
-  background: rgba(255, 179, 64, 0.12);
+  display: none;
 }
 
 .premium-home--cinematic .budget-monolith {
-  background:
-    radial-gradient(circle at 90% 14%, rgba(108, 134, 182, 0.16) 0%, transparent 26%),
-    linear-gradient(180deg, rgba(10, 14, 22, 0.94) 0%, rgba(14, 19, 28, 0.92) 100%);
-  border-color: rgba(255,255,255,0.08);
-  box-shadow: 0 28px 86px rgba(3, 5, 10, 0.42);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .premium-home--cinematic .budget-monolith__gauge {
@@ -1177,19 +1174,19 @@ body:has(.premium-home--cinematic) .page-frame {
 }
 
 .premium-home--cinematic .budget-monolith__kpi {
-  background: rgba(255,255,255,0.03);
-  border-color: rgba(255,255,255,0.08);
+  background: transparent;
+  border-color: transparent;
 }
 
 .premium-home--cinematic .premium-link-tile {
-  background: linear-gradient(180deg, rgba(10, 14, 22, 0.74) 0%, rgba(14, 19, 28, 0.58) 100%);
-  border-color: rgba(255,255,255,0.08);
+  background: transparent;
+  border-color: transparent;
 }
 
 .premium-home--cinematic .premium-link-tile:hover {
-  background: linear-gradient(180deg, rgba(18, 23, 34, 0.82) 0%, rgba(20, 28, 40, 0.64) 100%);
-  border-color: rgba(243, 195, 123, 0.24);
-  box-shadow: 0 22px 48px rgba(3, 5, 10, 0.34);
+  background: rgba(255,255,255,0.035);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .budget-monolith {
