@@ -1,6 +1,5 @@
 import sql from '@/lib/db'
 import { BudgetCard } from '@/components/dashboard/BudgetCard'
-import { ShowcaseSpendScene } from '@/components/dashboard/ShowcaseSpendScene'
 import { MONTHLY_TARGET, WEEKLY_BUDGET } from '@/lib/budget-constants'
 import Link from 'next/link'
 import { formatEuro } from '@/lib/utils'
@@ -13,6 +12,36 @@ function plain(rows: any[]): any[] {
   return JSON.parse(JSON.stringify(rows, (_k, v) =>
     v instanceof Date ? v.toISOString().slice(0,10) : v
   ))
+}
+
+function buildSpendCurve(
+  rows: Array<{ total_spend: number }>,
+  weeklyBudget: number
+): { path: string; fillPath: string; targetY: number } {
+  const values = rows.map((row) => Number(row.total_spend) || 0)
+  const peak = Math.max(weeklyBudget, ...values, 1) * 1.18
+  const width = 1000
+  const height = 320
+  const top = 18
+  const bottom = 292
+  const span = bottom - top
+
+  const points = values.map((value, index) => {
+    const x = values.length <= 1 ? width / 2 : (index / (values.length - 1)) * width
+    const y = bottom - (value / peak) * span
+    return [Math.round(x), Math.round(y)] as const
+  })
+
+  const path = points.length
+    ? points.map(([x, y], index) => `${index === 0 ? 'M' : 'L'} ${x} ${y}`).join(' ')
+    : `M 0 ${bottom} L ${width} ${bottom}`
+
+  const first = points[0] ?? [0, bottom]
+  const last = points.at(-1) ?? [width, bottom]
+  const fillPath = `${path} L ${last[0]} ${height} L ${first[0]} ${height} Z`
+  const targetY = Math.round(bottom - (weeklyBudget / peak) * span)
+
+  return { path, fillPath, targetY }
 }
 
 async function getDashboardData() {
@@ -91,92 +120,99 @@ export default async function DashboardPage() {
   const weekLabel = currentWeekSaturday
     ? new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(new Date(currentWeekSaturday))
     : 'Current week'
+  const spendCurve = buildSpendCurve(data.weeklyChart, data.WEEKLY_BUDGET)
 
   return (
-    <div className="premium-home premium-home--cinematic flex flex-col gap-8">
+    <div className="premium-home premium-home--cinematic">
       <div className="premium-home__field" />
       <div className="premium-home__grain" />
-      <section className="premium-hero animate-in">
-        <div className="premium-hero__grid">
-          <div className="premium-hero__copy">
-            <div className="card-label" style={{ marginBottom: 0 }}>Dashboard</div>
-            <h1 className="premium-hero__title">
-              <span className="premium-hero__title-main">
-                {weekOver ? `${formatEuro(weekDelta)} over this week` : `${formatEuro(weekDelta)} left this week`}
-              </span>
-            </h1>
-            <p className="premium-hero__status">
-              {projectedOver ? `Month-end is tracking ${formatEuro(monthDelta)} above target.` : `Month-end is tracking ${formatEuro(monthDelta)} under target.`}
-            </p>
-            <p className="premium-hero__body">
-              Week {weekLabel} has {data.weekReceipts} receipt{data.weekReceipts !== 1 ? 's' : ''} logged.
-              Bonus saved so far: {formatEuro(data.weekSavings)}. Current month projection: {formatEuro(data.projected)}.
-            </p>
-            <div className="premium-hero__actions">
-              <Link href="/receipts" className="btn-primary" style={{ textDecoration: 'none' }}>
-                Review Receipts
-              </Link>
-              <Link href="/analysis" className="btn-ghost" style={{ textDecoration: 'none' }}>
-                Open Analysis
-              </Link>
-              <Link href="/meal-planner" className="btn-ghost" style={{ textDecoration: 'none' }}>
-                Meal Planner
-              </Link>
-            </div>
-            <div className="premium-hero__signal">
-              <span className={`badge ${weekOver ? 'badge-warn' : 'badge-good'}`}>
-                {weekOver ? 'Weekly budget over' : 'Weekly budget on track'}
-              </span>
-              <span className={`badge ${projectedOver ? 'badge-warn' : 'badge-neutral'}`}>
-                {projectedOver ? 'Projection above target' : 'Projection within target'}
-              </span>
-              {data.moDelta !== null && (
-                <span className={`badge ${data.moDelta > 0 ? 'badge-warn' : 'badge-good'}`}>
-                  {data.moDelta > 0 ? `+${data.moDelta}% vs last month` : `${data.moDelta}% vs last month`}
-                </span>
-              )}
-            </div>
+      <section className="cinematic-opener animate-in">
+        <div className="cinematic-opener__copy">
+          <div className="card-label" style={{ marginBottom: 0 }}>Dashboard</div>
+          <h1 className="cinematic-opener__title">
+            {weekOver ? `${formatEuro(weekDelta)} over this week` : `${formatEuro(weekDelta)} left this week`}
+          </h1>
+          <p className="cinematic-opener__status">
+            {projectedOver ? `Month-end is tracking ${formatEuro(monthDelta)} above target.` : `Month-end is tracking ${formatEuro(monthDelta)} under target.`}
+          </p>
+          <p className="cinematic-opener__body">
+            Week {weekLabel} has {data.weekReceipts} receipt{data.weekReceipts !== 1 ? 's' : ''} logged.
+            Bonus saved so far: {formatEuro(data.weekSavings)}. Current month projection: {formatEuro(data.projected)}.
+          </p>
+          <div className="premium-hero__actions">
+            <Link href="/receipts" className="btn-primary" style={{ textDecoration: 'none' }}>
+              Review Receipts
+            </Link>
+            <Link href="/analysis" className="btn-ghost" style={{ textDecoration: 'none' }}>
+              Open Analysis
+            </Link>
+            <Link href="/meal-planner" className="btn-ghost" style={{ textDecoration: 'none' }}>
+              Meal Planner
+            </Link>
           </div>
+          <div className="premium-hero__signal">
+            <span className={`badge ${weekOver ? 'badge-warn' : 'badge-good'}`}>
+              {weekOver ? 'Weekly budget over' : 'Weekly budget on track'}
+            </span>
+            <span className={`badge ${projectedOver ? 'badge-warn' : 'badge-neutral'}`}>
+              {projectedOver ? 'Projection above target' : 'Projection within target'}
+            </span>
+            {data.moDelta !== null && (
+              <span className={`badge ${data.moDelta > 0 ? 'badge-warn' : 'badge-good'}`}>
+                {data.moDelta > 0 ? `+${data.moDelta}% vs last month` : `${data.moDelta}% vs last month`}
+              </span>
+            )}
+          </div>
+        </div>
 
-          <div className="premium-hero__metrics">
-            <HeroStat
-              label={`Week of ${weekLabel}`}
-              value={formatEuro(data.weekSpend)}
-              tone={weekOver ? 'warn' : 'good'}
-              detail={weekOver ? `${formatEuro(data.weekSpend - data.WEEKLY_BUDGET)} over budget` : `${formatEuro(data.WEEKLY_BUDGET - data.weekSpend)} remaining`}
+        <div className="cinematic-opener__chart" aria-hidden="true">
+          <svg className="cinematic-opener__curve" viewBox="0 0 1000 320" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="heroSpendStroke" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0%" stopColor="#6ee7a1" />
+                <stop offset="52%" stopColor="#f2b84b" />
+                <stop offset="100%" stopColor="#fb7185" />
+              </linearGradient>
+              <linearGradient id="heroSpendFill" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stopColor="#f2b84b" stopOpacity="0.18" />
+                <stop offset="100%" stopColor="#f2b84b" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path d={spendCurve.fillPath} fill="url(#heroSpendFill)" />
+            <line
+              x1="0"
+              x2="1000"
+              y1={spendCurve.targetY}
+              y2={spendCurve.targetY}
+              className="cinematic-opener__target"
             />
-            <HeroStat
-              label="Month to date"
-              value={formatEuro(data.monthSpend)}
-              detail={`${data.today} of ${data.daysInMo} days logged`}
-            />
-            <HeroStat
-              label="Projection"
-              value={formatEuro(data.projected)}
-              tone={projectedOver ? 'warn' : undefined}
-              detail={projectedOver ? `${formatEuro(data.projected - data.MONTHLY_TARGET)} above target` : `${formatEuro(data.MONTHLY_TARGET - data.projected)} below target`}
-            />
-            <HeroStat
-              label="Bonus saved"
-              value={formatEuro(data.weekSavings)}
-              tone="good"
-              detail={`${data.weekReceipts} receipt${data.weekReceipts !== 1 ? 's' : ''} this week`}
-            />
-          </div>
+            <path d={spendCurve.path} className="cinematic-opener__path" />
+          </svg>
+        </div>
+
+        <div className="cinematic-opener__metrics">
+          <HeroStat
+            label={`Week of ${weekLabel}`}
+            value={formatEuro(data.weekSpend)}
+            tone={weekOver ? 'warn' : 'good'}
+            detail={weekOver ? `${formatEuro(data.weekSpend - data.WEEKLY_BUDGET)} over budget` : `${formatEuro(data.WEEKLY_BUDGET - data.weekSpend)} remaining`}
+          />
+          <HeroStat
+            label="Month to date"
+            value={formatEuro(data.monthSpend)}
+            detail={`${data.today} of ${data.daysInMo} days logged`}
+          />
+          <HeroStat
+            label="Projection"
+            value={formatEuro(data.projected)}
+            tone={projectedOver ? 'warn' : undefined}
+            detail={projectedOver ? `${formatEuro(data.projected - data.MONTHLY_TARGET)} above target` : `${formatEuro(data.MONTHLY_TARGET - data.projected)} below target`}
+          />
         </div>
       </section>
 
       <section className="premium-stage animate-in" style={{ animationDelay: '120ms' }}>
         <div className="premium-stage__grid">
-          <div className="premium-stage__primary">
-            <ShowcaseSpendScene
-              data={data.weeklyChart}
-              weekBudget={data.WEEKLY_BUDGET}
-              weekSpend={data.weekSpend}
-              projected={data.projected}
-              monthTarget={data.MONTHLY_TARGET}
-            />
-          </div>
           <div className="premium-stage__side">
             <BudgetCard
               weekSpend={data.weekSpend}
@@ -193,21 +229,21 @@ export default async function DashboardPage() {
                 : `${formatEuro(data.WEEKLY_BUDGET - data.weekSpend)} still available this week.`}
             </div>
           </div>
+          <div className="premium-summary">
+            <div className="card-label" style={{ marginBottom: 8 }}>Current position</div>
+            <div className="premium-summary__text">
+              {projectedOver
+                ? `At the current pace, month-end lands ${formatEuro(data.projected - data.MONTHLY_TARGET)} above target.`
+                : `At the current pace, month-end lands ${formatEuro(data.MONTHLY_TARGET - data.projected)} below target.`}
+            </div>
+            <div className="premium-summary__meta">
+              {data.weekReceipts} receipt{data.weekReceipts !== 1 ? 's' : ''} this week. {formatEuro(data.weekSavings)} saved in bonus.
+            </div>
+          </div>
         </div>
       </section>
 
       <section className="premium-lower animate-in" style={{ animationDelay: '220ms' }}>
-        <div className="premium-summary">
-          <div className="card-label" style={{ marginBottom: 8 }}>Current position</div>
-          <div className="premium-summary__text">
-            {projectedOver
-              ? `At the current pace, month-end lands ${formatEuro(data.projected - data.MONTHLY_TARGET)} above target.`
-              : `At the current pace, month-end lands ${formatEuro(data.MONTHLY_TARGET - data.projected)} below target.`}
-          </div>
-          <div className="premium-summary__meta">
-            {data.weekReceipts} receipt{data.weekReceipts !== 1 ? 's' : ''} this week. {formatEuro(data.weekSavings)} saved in bonus.
-          </div>
-        </div>
         <div className="premium-link-rail">
           <Link href="/analysis" className="premium-link-tile">
             <span className="premium-link-tile__eyebrow">Deep dive</span>

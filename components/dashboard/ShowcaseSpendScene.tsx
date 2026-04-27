@@ -26,6 +26,7 @@ interface Props {
   weekSpend: number
   projected: number
   monthTarget: number
+  variant?: 'scene' | 'field'
 }
 
 export function ShowcaseSpendScene({
@@ -34,9 +35,11 @@ export function ShowcaseSpendScene({
   weekSpend,
   projected,
   monthTarget,
+  variant = 'scene',
 }: Props) {
   const { theme } = useTheme()
-  const isDark = theme === 'dark'
+  const isField = variant === 'field'
+  const isDark = theme === 'dark' || isField
 
   const chartData = data
     .filter((row) => row.week_saturday)
@@ -67,13 +70,15 @@ export function ShowcaseSpendScene({
   const projectedDelta = projected - monthTarget
 
   return (
-    <section className="showcase-scene">
-      <div className="showcase-scene__header">
-        <div className="showcase-scene__eyebrow">Spend flow</div>
-        <div className="showcase-scene__lede">
-          Weekly spend is moving at {formatEuro(avgSpend)} on average.
+    <section className={`showcase-scene ${isField ? 'showcase-scene--field' : ''}`}>
+      {!isField && (
+        <div className="showcase-scene__header">
+          <div className="showcase-scene__eyebrow">Spend flow</div>
+          <div className="showcase-scene__lede">
+            Weekly spend is moving at {formatEuro(avgSpend)} on average.
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="showcase-scene__chart-wrap">
         <div className="showcase-scene__axis-copy">
@@ -82,7 +87,7 @@ export function ShowcaseSpendScene({
         </div>
         <div className="showcase-scene__chart">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: -26 }}>
+              <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: -26 }}>
               <defs>
                 <linearGradient id="showcaseSpendFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={accent} stopOpacity={0.28} />
@@ -125,7 +130,7 @@ export function ShowcaseSpendScene({
                 type="monotone"
                 dataKey="spend"
                 stroke={accent}
-                strokeWidth={3}
+                strokeWidth={isField ? 4 : 3}
                 fill="url(#showcaseSpendFill)"
                 dot={false}
                 activeDot={{ r: 5, fill: accent }}
@@ -135,19 +140,21 @@ export function ShowcaseSpendScene({
         </div>
       </div>
 
-      <div className="showcase-scene__foot">
-        <div className="showcase-scene__signal">
-          <span className="showcase-scene__signal-label">This week</span>
-          <span className="showcase-scene__signal-value">{formatEuro(weekSpend)}</span>
+      {!isField && (
+        <div className="showcase-scene__foot">
+          <div className="showcase-scene__signal">
+            <span className="showcase-scene__signal-label">This week</span>
+            <span className="showcase-scene__signal-value">{formatEuro(weekSpend)}</span>
+          </div>
+          <div className="showcase-scene__signal">
+            <span className="showcase-scene__signal-label">Month projection</span>
+            <span className="showcase-scene__signal-value">
+              {projectedDelta > 0 ? '+' : ''}
+              {formatEuro(projectedDelta)}
+            </span>
+          </div>
         </div>
-        <div className="showcase-scene__signal">
-          <span className="showcase-scene__signal-label">Month projection</span>
-          <span className="showcase-scene__signal-value">
-            {projectedDelta > 0 ? '+' : ''}
-            {formatEuro(projectedDelta)}
-          </span>
-        </div>
-      </div>
+      )}
     </section>
   )
 }
