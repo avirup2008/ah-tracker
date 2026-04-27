@@ -105,9 +105,12 @@ export default async function DashboardPage() {
           <div className="premium-hero__copy">
             <div className="card-label" style={{ marginBottom: 0 }}>Dashboard</div>
             <h1 className="premium-hero__title">
-              {weekOver ? `${formatEuro(weekDelta)} over this week.` : `${formatEuro(weekDelta)} left this week.`}
-              <br />
-              {projectedOver ? `${formatEuro(monthDelta)} over by month-end.` : `${formatEuro(monthDelta)} under by month-end.`}
+              <span className="premium-hero__title-main">
+                {weekOver ? `${formatEuro(weekDelta)} over this week.` : `${formatEuro(weekDelta)} left for this week.`}
+              </span>
+              <span className="premium-hero__title-sub">
+                {projectedOver ? `Month-end is tracking ${formatEuro(monthDelta)} above target.` : `Month-end is tracking ${formatEuro(monthDelta)} under target.`}
+              </span>
             </h1>
             <p className="premium-hero__body">
               Week {weekLabel} has {data.weekReceipts} receipt{data.weekReceipts !== 1 ? 's' : ''} logged.
