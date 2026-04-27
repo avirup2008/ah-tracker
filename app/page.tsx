@@ -15,19 +15,27 @@ function plain(rows: any[]): any[] {
 }
 
 function buildSpendCurve(
-  rows: Array<{ total_spend: number }>,
+  rows: Array<{ week_saturday?: string; total_spend: number }>,
   weeklyBudget: number
-): { path: string; fillPath: string; targetY: number } {
+): {
+  path: string
+  fillPath: string
+  targetY: number
+  ticks: Array<{ value: number; y: number }>
+  xLabels: Array<{ label: string; x: number }>
+} {
   const values = rows.map((row) => Number(row.total_spend) || 0)
-  const peak = Math.max(weeklyBudget, ...values, 1) * 1.18
+  const peak = Math.max(320, Math.ceil(Math.max(weeklyBudget, ...values, 1) / 80) * 80)
   const width = 1000
   const height = 320
-  const top = 18
-  const bottom = 292
+  const left = 72
+  const right = 976
+  const top = 34
+  const bottom = 276
   const span = bottom - top
 
   const points = values.map((value, index) => {
-    const x = values.length <= 1 ? width / 2 : (index / (values.length - 1)) * width
+    const x = values.length <= 1 ? (left + right) / 2 : left + (index / (values.length - 1)) * (right - left)
     const y = bottom - (value / peak) * span
     return [Math.round(x), Math.round(y)] as const
   })
@@ -40,8 +48,25 @@ function buildSpendCurve(
   const last = points.at(-1) ?? [width, bottom]
   const fillPath = `${path} L ${last[0]} ${height} L ${first[0]} ${height} Z`
   const targetY = Math.round(bottom - (weeklyBudget / peak) * span)
+  const ticks = [320, 240, 160, 80, 0]
+    .filter((value) => value <= peak)
+    .map((value) => ({
+      value,
+      y: Math.round(bottom - (value / peak) * span),
+    }))
+  const xLabels = rows
+    .map((row, index) => {
+      const raw = String(row.week_saturday ?? '')
+      const date = raw ? new Date(raw) : null
+      const label = date && !Number.isNaN(date.getTime())
+        ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)
+        : raw.slice(5, 10)
+      const x = values.length <= 1 ? (left + right) / 2 : left + (index / (values.length - 1)) * (right - left)
+      return { label, x: Math.round(x) }
+    })
+    .filter((_, index) => index === 0 || index === rows.length - 1 || index % 2 === 0)
 
-  return { path, fillPath, targetY }
+  return { path, fillPath, targetY, ticks, xLabels }
 }
 
 async function getDashboardData() {
@@ -146,36 +171,54 @@ export default async function DashboardPage() {
             <span className={`badge ${projectedOver ? 'badge-warn' : 'badge-neutral'}`}>
               {projectedOver ? 'Projection above target' : 'Projection within target'}
             </span>
-            {data.moDelta !== null && (
-              <span className={`badge ${data.moDelta > 0 ? 'badge-warn' : 'badge-good'}`}>
-                {data.moDelta > 0 ? `+${data.moDelta}% vs last month` : `${data.moDelta}% vs last month`}
-              </span>
-            )}
           </div>
         </div>
 
-        <div className="cinematic-opener__chart" aria-hidden="true">
+        <div className="cinematic-opener__chart">
+          <div className="cinematic-opener__chart-head">
+            <span>Recent weeks</span>
+            <span>Target {formatEuro(data.WEEKLY_BUDGET)}</span>
+          </div>
           <svg className="cinematic-opener__curve" viewBox="0 0 1000 320" preserveAspectRatio="none">
             <defs>
               <linearGradient id="heroSpendStroke" x1="0" x2="1" y1="0" y2="0">
-                <stop offset="0%" stopColor="#6ee7a1" />
-                <stop offset="52%" stopColor="#f2b84b" />
-                <stop offset="100%" stopColor="#fb7185" />
+                <stop offset="0%" stopColor="#d19428" />
+                <stop offset="62%" stopColor="#d69a2f" />
+                <stop offset="100%" stopColor="#f1b04e" />
               </linearGradient>
               <linearGradient id="heroSpendFill" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="#f2b84b" stopOpacity="0.18" />
+                <stop offset="0%" stopColor="#d19428" stopOpacity="0.18" />
                 <stop offset="100%" stopColor="#f2b84b" stopOpacity="0" />
               </linearGradient>
             </defs>
+            {spendCurve.ticks.map((tick) => (
+              <g key={tick.value}>
+                <line
+                  x1="72"
+                  x2="976"
+                  y1={tick.y}
+                  y2={tick.y}
+                  className="cinematic-opener__grid-line"
+                />
+                <text x="28" y={tick.y + 5} className="cinematic-opener__axis-label">
+                  €{tick.value}
+                </text>
+              </g>
+            ))}
             <path d={spendCurve.fillPath} fill="url(#heroSpendFill)" />
             <line
-              x1="0"
-              x2="1000"
+              x1="72"
+              x2="976"
               y1={spendCurve.targetY}
               y2={spendCurve.targetY}
               className="cinematic-opener__target"
             />
             <path d={spendCurve.path} className="cinematic-opener__path" />
+            {spendCurve.xLabels.map((item) => (
+              <text key={`${item.label}-${item.x}`} x={item.x} y="312" className="cinematic-opener__x-label">
+                {item.label}
+              </text>
+            ))}
           </svg>
         </div>
 
