@@ -121,6 +121,23 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
+.routeLinks {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2vw, 30px);
+  margin-left: auto;
+}
+
+.routeLinks a {
+  color: rgba(215, 224, 241, 0.66);
+  text-decoration: none;
+  transition: color 180ms ease;
+}
+
+.routeLinks a:hover {
+  color: #fff8ed;
+}
+
 .navMeta {
   color: rgba(157, 170, 196, 0.86);
 }
@@ -321,6 +338,10 @@
 
   .nav {
     align-items: flex-start;
+  }
+
+  .routeLinks {
+    display: none;
   }
 
   .navMeta {
