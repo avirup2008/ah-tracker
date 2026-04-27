@@ -23,6 +23,7 @@ function buildSpendCurve(
   targetY: number
   ticks: Array<{ value: number; y: number }>
   xLabels: Array<{ label: string; x: number }>
+  annotations: Array<{ label: string; value: string; x: number; y: number; tone?: 'good' | 'warn' }>
 } {
   const values = rows.map((row) => Number(row.total_spend) || 0)
   const peak = Math.max(320, Math.ceil(Math.max(weeklyBudget, ...values, 1) / 80) * 80)
@@ -40,8 +41,16 @@ function buildSpendCurve(
     return [Math.round(x), Math.round(y)] as const
   })
 
-  const path = points.length
-    ? points.map(([x, y], index) => `${index === 0 ? 'M' : 'L'} ${x} ${y}`).join(' ')
+  const path = points.length > 1
+    ? points.reduce((acc, point, index) => {
+      if (index === 0) return `M ${point[0]} ${point[1]}`
+
+      const previous = points[index - 1]
+      const controlOffset = Math.max(18, (point[0] - previous[0]) * 0.42)
+      return `${acc} C ${Math.round(previous[0] + controlOffset)} ${previous[1]}, ${Math.round(point[0] - controlOffset)} ${point[1]}, ${point[0]} ${point[1]}`
+    }, '')
+    : points.length === 1
+      ? `M ${points[0][0]} ${points[0][1]}`
     : `M 0 ${bottom} L ${width} ${bottom}`
 
   const first = points[0] ?? [0, bottom]
@@ -65,8 +74,27 @@ function buildSpendCurve(
       return { label, x: Math.round(x) }
     })
     .filter((_, index) => index === 0 || index === rows.length - 1 || index % 2 === 0)
+  const peakPointIndex = values.reduce((bestIndex, value, index) => value > values[bestIndex] ? index : bestIndex, 0)
+  const peakPoint = points[peakPointIndex] ?? [left, bottom]
+  const lastPoint = points.at(-1) ?? [right, bottom]
+  const annotations = [
+    {
+      label: 'Highest week',
+      value: formatEuro(values[peakPointIndex] ?? 0),
+      x: Math.min(peakPoint[0] + 32, 860),
+      y: Math.max(peakPoint[1] - 34, 42),
+      tone: 'warn' as const,
+    },
+    {
+      label: 'Latest week',
+      value: formatEuro(values.at(-1) ?? 0),
+      x: Math.max(lastPoint[0] - 132, 620),
+      y: Math.max(lastPoint[1] - 34, 54),
+      tone: (values.at(-1) ?? 0) > weeklyBudget ? 'warn' as const : 'good' as const,
+    },
+  ]
 
-  return { path, fillPath, targetY, ticks, xLabels }
+  return { path, fillPath, targetY, ticks, xLabels, annotations }
 }
 
 async function getDashboardData() {
@@ -153,7 +181,7 @@ export default async function DashboardPage() {
       <div className="premium-home__grain" />
       <section className="cinematic-opener animate-in">
         <div className="cinematic-opener__copy">
-          <div className="card-label" style={{ marginBottom: 0 }}>Dashboard</div>
+          <div className="card-label" style={{ marginBottom: 0 }}>Spend signal</div>
           <h1 className="cinematic-opener__title">
             {weekOver ? `${formatEuro(weekDelta)} over this week` : `${formatEuro(weekDelta)} left this week`}
           </h1>
@@ -214,6 +242,16 @@ export default async function DashboardPage() {
               className="cinematic-opener__target"
             />
             <path d={spendCurve.path} className="cinematic-opener__path" />
+            {spendCurve.annotations.map((item) => (
+              <g key={item.label} className={`cinematic-opener__annotation cinematic-opener__annotation--${item.tone ?? 'neutral'}`}>
+                <text x={item.x} y={item.y} className="cinematic-opener__annotation-label">
+                  {item.label}
+                </text>
+                <text x={item.x} y={item.y + 28} className="cinematic-opener__annotation-value">
+                  {item.value}
+                </text>
+              </g>
+            ))}
             {spendCurve.xLabels.map((item) => (
               <text key={`${item.label}-${item.x}`} x={item.x} y="312" className="cinematic-opener__x-label">
                 {item.label}
@@ -222,24 +260,10 @@ export default async function DashboardPage() {
           </svg>
         </div>
 
-        <div className="cinematic-opener__metrics">
-          <HeroStat
-            label={`Week of ${weekLabel}`}
-            value={formatEuro(data.weekSpend)}
-            tone={weekOver ? 'warn' : 'good'}
-            detail={weekOver ? `${formatEuro(data.weekSpend - data.WEEKLY_BUDGET)} over budget` : `${formatEuro(data.WEEKLY_BUDGET - data.weekSpend)} remaining`}
-          />
-          <HeroStat
-            label="Month to date"
-            value={formatEuro(data.monthSpend)}
-            detail={`${data.today} of ${data.daysInMo} days logged`}
-          />
-          <HeroStat
-            label="Projection"
-            value={formatEuro(data.projected)}
-            tone={projectedOver ? 'warn' : undefined}
-            detail={projectedOver ? `${formatEuro(data.projected - data.MONTHLY_TARGET)} above target` : `${formatEuro(data.MONTHLY_TARGET - data.projected)} below target`}
-          />
+        <div className="cinematic-opener__readout" aria-hidden="true">
+          <span>{formatEuro(data.weekSpend)}</span>
+          <span>{formatEuro(data.monthSpend)}</span>
+          <span>{formatEuro(data.projected)}</span>
         </div>
       </section>
 
@@ -291,36 +315,6 @@ export default async function DashboardPage() {
           </Link>
         </div>
       </section>
-    </div>
-  )
-}
-
-function HeroStat({
-  label,
-  value,
-  detail,
-  tone,
-}: {
-  label: string
-  value: string
-  detail: string
-  tone?: 'good' | 'warn'
-}) {
-  return (
-    <div className={`premium-stat ${tone ? `premium-stat--${tone}` : ''}`}>
-      <div className="card-label" style={{ marginBottom: 6 }}>{label}</div>
-      <div
-        className="mono"
-        style={{
-          fontSize: 24,
-          fontWeight: 700,
-        }}
-      >
-        {value}
-      </div>
-      <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--text-3)', lineHeight: 1.5 }}>
-        {detail}
-      </div>
     </div>
   )
 }
