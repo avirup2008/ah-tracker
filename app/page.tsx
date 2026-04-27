@@ -95,23 +95,19 @@ export default async function DashboardPage() {
   return (
     <div className="premium-home premium-home--cinematic flex flex-col gap-8">
       <div className="premium-home__field" />
-      <div className="premium-home__veil premium-home__veil--left" />
-      <div className="premium-home__veil premium-home__veil--right" />
       <div className="premium-home__grain" />
       <section className="premium-hero animate-in">
-        <div className="premium-hero__orb premium-hero__orb--one" />
-        <div className="premium-hero__orb premium-hero__orb--two" />
         <div className="premium-hero__grid">
           <div className="premium-hero__copy">
             <div className="card-label" style={{ marginBottom: 0 }}>Dashboard</div>
             <h1 className="premium-hero__title">
               <span className="premium-hero__title-main">
-                {weekOver ? `${formatEuro(weekDelta)} over this week.` : `${formatEuro(weekDelta)} left for this week.`}
-              </span>
-              <span className="premium-hero__title-sub">
-                {projectedOver ? `Month-end is tracking ${formatEuro(monthDelta)} above target.` : `Month-end is tracking ${formatEuro(monthDelta)} under target.`}
+                {weekOver ? `${formatEuro(weekDelta)} over this week` : `${formatEuro(weekDelta)} left this week`}
               </span>
             </h1>
+            <p className="premium-hero__status">
+              {projectedOver ? `Month-end is tracking ${formatEuro(monthDelta)} above target.` : `Month-end is tracking ${formatEuro(monthDelta)} under target.`}
+            </p>
             <p className="premium-hero__body">
               Week {weekLabel} has {data.weekReceipts} receipt{data.weekReceipts !== 1 ? 's' : ''} logged.
               Bonus saved so far: {formatEuro(data.weekSavings)}. Current month projection: {formatEuro(data.projected)}.
@@ -243,21 +239,13 @@ function HeroStat({
   tone?: 'good' | 'warn'
 }) {
   return (
-    <div
-      className="premium-stat"
-      style={{
-        background: 'color-mix(in srgb, var(--surface2) 78%, transparent)',
-        borderColor: 'color-mix(in srgb, var(--text) 8%, var(--border))',
-      }}
-    >
+    <div className={`premium-stat ${tone ? `premium-stat--${tone}` : ''}`}>
       <div className="card-label" style={{ marginBottom: 6 }}>{label}</div>
       <div
         className="mono"
         style={{
           fontSize: 24,
           fontWeight: 700,
-          color: tone === 'warn' ? 'var(--warn)' : tone === 'good' ? 'var(--good)' : 'var(--text)',
-          letterSpacing: '-0.03em',
         }}
       >
         {value}
