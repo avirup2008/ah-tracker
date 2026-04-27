@@ -713,7 +713,8 @@ body:has(.premium-home--cinematic) .page-frame {
 .premium-hero__signal {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 14px;
+  margin-top: 2px;
 }
 
 .premium-hero__metrics {
@@ -1230,17 +1231,17 @@ body:has(.premium-home--cinematic) .page-frame {
 }
 
 .premium-home--cinematic .premium-hero__signal .badge-neutral {
-  background: rgba(146, 168, 201, 0.14);
+  background: transparent;
   color: #b8cae5;
 }
 
 .premium-home--cinematic .badge-good {
-  background: rgba(76, 170, 116, 0.14);
+  background: transparent;
   color: #7ed29e;
 }
 
 .premium-home--cinematic .badge-warn {
-  background: rgba(255, 161, 103, 0.14);
+  background: transparent;
   color: #ffbf92;
 }
 

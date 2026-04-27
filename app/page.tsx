@@ -139,17 +139,6 @@ export default async function DashboardPage() {
             Week {weekLabel} has {data.weekReceipts} receipt{data.weekReceipts !== 1 ? 's' : ''} logged.
             Bonus saved so far: {formatEuro(data.weekSavings)}. Current month projection: {formatEuro(data.projected)}.
           </p>
-          <div className="premium-hero__actions">
-            <Link href="/receipts" className="btn-primary" style={{ textDecoration: 'none' }}>
-              Review Receipts
-            </Link>
-            <Link href="/analysis" className="btn-ghost" style={{ textDecoration: 'none' }}>
-              Open Analysis
-            </Link>
-            <Link href="/meal-planner" className="btn-ghost" style={{ textDecoration: 'none' }}>
-              Meal Planner
-            </Link>
-          </div>
           <div className="premium-hero__signal">
             <span className={`badge ${weekOver ? 'badge-warn' : 'badge-good'}`}>
               {weekOver ? 'Weekly budget over' : 'Weekly budget on track'}
