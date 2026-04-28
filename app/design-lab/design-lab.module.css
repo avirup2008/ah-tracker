@@ -240,10 +240,82 @@
   font-weight: 700;
 }
 
+.monthTrendGraph {
+  position: relative;
+  display: grid;
+  min-height: 180px;
+  margin-bottom: 30px;
+  padding: 22px 0 0;
+  border-top: 1px solid rgba(159, 176, 208, 0.13);
+  border-bottom: 1px solid rgba(159, 176, 208, 0.13);
+}
+
+.monthTrendGraph::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  left: 0;
+  bottom: var(--target-pct);
+  height: 1px;
+  background: rgba(255, 248, 235, 0.42);
+  box-shadow: 0 0 22px rgba(255, 248, 235, 0.14);
+}
+
+.monthTrendGraphTarget {
+  position: absolute;
+  right: 0;
+  bottom: calc(var(--target-pct) + 8px);
+  color: rgba(246, 241, 232, 0.68);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.monthTrendGraphBars {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: clamp(12px, 2vw, 28px);
+  align-items: end;
+}
+
+.monthTrendGraphColumn {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  align-items: end;
+  gap: 10px;
+  min-height: 156px;
+}
+
+.monthTrendGraphBar,
+.monthTrendGraphBarOver {
+  display: block;
+  width: 100%;
+  height: var(--bar-height);
+  min-height: 8px;
+  border-radius: 999px 999px 8px 8px;
+  background: linear-gradient(180deg, #7ee4a3 0%, #e19d28 100%);
+  box-shadow: 0 0 32px rgba(245, 181, 77, 0.2);
+}
+
+.monthTrendGraphBarOver {
+  background: linear-gradient(180deg, #f06f4f 0%, #e19d28 100%);
+}
+
+.monthTrendGraphColumn small {
+  overflow: hidden;
+  color: rgba(146, 163, 195, 0.76);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .monthTrendHead,
 .monthTrendRow {
   display: grid;
-  grid-template-columns: minmax(190px, 1fr) minmax(230px, 1.18fr) 110px 130px;
+  grid-template-columns: minmax(180px, 0.95fr) minmax(130px, 0.55fr) minmax(260px, 1.2fr);
   gap: 18px;
   align-items: center;
 }
@@ -269,14 +341,15 @@
 }
 
 .monthTrendMonth,
-.monthTrendSpend {
+.monthTrendActual,
+.monthTrendVariance {
   display: grid;
   gap: 8px;
 }
 
 .monthTrendMonth strong,
-.monthTrendSpend strong,
-.monthTrendTargetValue,
+.monthTrendActual strong,
+.monthTrendVariance strong,
 .monthTrendOver,
 .monthTrendUnder {
   color: #fff8eb;
@@ -321,10 +394,6 @@
   width: 2px;
   border-radius: 999px;
   background: rgba(255, 248, 235, 0.74);
-}
-
-.monthTrendTargetValue {
-  color: rgba(246, 241, 232, 0.58);
 }
 
 .monthTrendOver {
@@ -699,6 +768,24 @@
     padding-bottom: 12px;
   }
 
+  .monthTrendGraph {
+    min-height: 150px;
+    margin-bottom: 20px;
+  }
+
+  .monthTrendGraphBars {
+    gap: 10px;
+  }
+
+  .monthTrendGraphColumn {
+    min-height: 126px;
+  }
+
+  .monthTrendGraphTarget {
+    max-width: 120px;
+    text-align: right;
+  }
+
   .monthTrendRow {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -706,7 +793,4 @@
     padding: 22px 0;
   }
 
-  .monthTrendTargetValue {
-    display: none;
-  }
 }

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import Link from 'next/link'
 import sql from '@/lib/db'
 import { MONTHLY_TARGET, WEEKLY_BUDGET } from '@/lib/budget-constants'
@@ -53,19 +54,6 @@ function chartLabel(value: string | undefined) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value.slice(5, 10)
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)
-}
-
-function rangeLabel(start: string, end: string) {
-  const startDate = new Date(start)
-  const endDate = new Date(end)
-  endDate.setDate(endDate.getDate() - 1)
-
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-    return `${start} to ${end}`
-  }
-
-  const formatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
-  return `${formatter.format(startDate)} to ${formatter.format(endDate)}`
 }
 
 function pathFromPoints(points: DataPoint[]) {
@@ -157,7 +145,7 @@ async function getDashboardData(): Promise<DashboardData> {
         ) AS series
       )
       SELECT
-        TO_CHAR(periods.period_start, 'Mon YYYY') AS label,
+        TO_CHAR(periods.period_start, 'FMMonth YYYY') AS label,
         TO_CHAR(periods.period_start, 'YYYY-MM-DD') AS period_start,
         TO_CHAR(periods.period_end, 'YYYY-MM-DD') AS period_end,
         ROUND(COALESCE(SUM(receipts.net_grocery_spend), 0)::numeric, 2) AS total_spend,
@@ -226,6 +214,37 @@ function SpendCurve({ rows }: { rows: WeekRow[] }) {
   )
 }
 
+function BudgetMonthGraph({ rows, maxSpend }: { rows: BudgetMonthRow[], maxSpend: number }) {
+  const targetPct = Math.min(100, Math.round((MONTHLY_TARGET / maxSpend) * 100))
+
+  return (
+    <div
+      className={styles.monthTrendGraph}
+      style={{ '--target-pct': `${targetPct}%` } as CSSProperties}
+      aria-hidden="true"
+    >
+      <span className={styles.monthTrendGraphTarget}>Target {formatEuro(MONTHLY_TARGET)}</span>
+      <div className={styles.monthTrendGraphBars}>
+        {rows.map((row) => {
+          const spend = Number(row.total_spend) || 0
+          const overTarget = spend > MONTHLY_TARGET
+          const height = Math.max(5, Math.round((spend / maxSpend) * 100))
+
+          return (
+            <div className={styles.monthTrendGraphColumn} key={row.period_start}>
+              <span
+                className={overTarget ? styles.monthTrendGraphBarOver : styles.monthTrendGraphBar}
+                style={{ '--bar-height': `${height}%` } as CSSProperties}
+              />
+              <small>{row.label.slice(0, 3)}</small>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function BudgetMonthTrend({ rows }: { rows: BudgetMonthRow[] }) {
   const maxSpend = Math.max(MONTHLY_TARGET, ...rows.map((row) => Number(row.total_spend) || 0), 1)
 
@@ -245,11 +264,12 @@ function BudgetMonthTrend({ rows }: { rows: BudgetMonthRow[] }) {
           <strong>{formatEuro(MONTHLY_TARGET)} target</strong>
         </div>
 
+        <BudgetMonthGraph rows={rows} maxSpend={maxSpend} />
+
         <div className={styles.monthTrendHead} aria-hidden="true">
           <span>Month</span>
-          <span>Actual</span>
-          <span>Target</span>
-          <span>Variance</span>
+          <span>Actual spend</span>
+          <span>Trend vs budget</span>
         </div>
 
         {rows.map((row) => {
@@ -258,17 +278,21 @@ function BudgetMonthTrend({ rows }: { rows: BudgetMonthRow[] }) {
           const spentPct = Math.min(100, Math.round((spend / maxSpend) * 100))
           const targetPct = Math.min(100, Math.round((MONTHLY_TARGET / maxSpend) * 100))
           const overTarget = delta < 0
-          const receiptWord = Number(row.receipt_count) === 1 ? 'receipt' : 'receipts'
 
           return (
             <div className={styles.monthTrendRow} key={row.period_start}>
               <div className={styles.monthTrendMonth}>
                 <strong>{row.label}</strong>
-                <span>{rangeLabel(row.period_start, row.period_end)} · {row.receipt_count} {receiptWord}</span>
               </div>
 
-              <div className={styles.monthTrendSpend}>
+              <div className={styles.monthTrendActual}>
                 <strong>{formatEuro(spend)}</strong>
+              </div>
+
+              <div className={styles.monthTrendVariance}>
+                <strong className={overTarget ? styles.monthTrendOver : styles.monthTrendUnder}>
+                  {overTarget ? `${formatEuro(Math.abs(delta))} over` : `${formatEuro(delta)} under`}
+                </strong>
                 <div className={styles.monthTrendBar} aria-hidden="true">
                   <span className={styles.monthTrendTarget} style={{ left: `${targetPct}%` }} />
                   <span
@@ -276,11 +300,6 @@ function BudgetMonthTrend({ rows }: { rows: BudgetMonthRow[] }) {
                     style={{ width: `${spentPct}%` }}
                   />
                 </div>
-              </div>
-
-              <div className={styles.monthTrendTargetValue}>{formatEuro(MONTHLY_TARGET)}</div>
-              <div className={overTarget ? styles.monthTrendOver : styles.monthTrendUnder}>
-                {overTarget ? `${formatEuro(Math.abs(delta))} over` : `${formatEuro(delta)} left`}
               </div>
             </div>
           )
