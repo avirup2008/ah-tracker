@@ -232,14 +232,19 @@ function BudgetMonthTrend({ rows }: { rows: BudgetMonthRow[] }) {
   return (
     <section className={styles.monthTrend} aria-labelledby="month-trend-title">
       <div className={styles.monthTrendIntro}>
-        <h2 id="month-trend-title">Budget months against target.</h2>
+        <h2 id="month-trend-title">Six budget months. One target.</h2>
         <p>
-          Salary-cycle months run from the 25th to the day before the next 25th.
-          Target stays fixed at {formatEuro(MONTHLY_TARGET)}.
+          Every row follows your salary cycle: 25th to the day before the next 25th,
+          compared against the {formatEuro(MONTHLY_TARGET)} monthly target.
         </p>
       </div>
 
       <div className={styles.monthTrendTable}>
+        <div className={styles.monthTrendPanelHeader}>
+          <span>Salary-cycle spend</span>
+          <strong>{formatEuro(MONTHLY_TARGET)} target</strong>
+        </div>
+
         <div className={styles.monthTrendHead} aria-hidden="true">
           <span>Month</span>
           <span>Actual</span>
