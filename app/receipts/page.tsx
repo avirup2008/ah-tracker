@@ -160,7 +160,7 @@ export default function ReceiptsPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to load receipt')
       setDetail(data)
     } catch (err) {
-      setEditorMsg(err instanceof Error ? `❌ ${err.message}` : '❌ Failed to load receipt')
+      setEditorMsg(err instanceof Error ? err.message : 'Failed to load receipt')
       setDetail(null)
     } finally {
       setDetailLoading(false)
@@ -176,10 +176,10 @@ export default function ReceiptsPage() {
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: formData })
       const data = await res.json()
-      setUploadMsg(`✅ ${data.uploaded} uploaded · ${data.duplicates} duplicates`)
+      setUploadMsg(`${data.uploaded} uploaded · ${data.duplicates} duplicates`)
       fetchReceipts()
     } catch {
-      setUploadMsg('❌ Upload failed')
+      setUploadMsg('Upload failed')
     } finally {
       setUploading(false)
     }
@@ -235,7 +235,7 @@ export default function ReceiptsPage() {
         : err instanceof Error
           ? err.message
           : 'Parse failed'
-      setParseMsg(`❌ ${message}`)
+      setParseMsg(message)
       await fetchReceipts()
     } finally {
       setParsingPending(false)
@@ -404,10 +404,10 @@ export default function ReceiptsPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to save receipt')
-      setEditorMsg('✅ Corrections saved')
+      setEditorMsg('Corrections saved')
       await Promise.all([fetchReceipts(), fetchDetail(selectedId)])
     } catch (err) {
-      setEditorMsg(err instanceof Error ? `❌ ${err.message}` : '❌ Failed to save receipt')
+      setEditorMsg(err instanceof Error ? err.message : 'Failed to save receipt')
     } finally {
       setSaving(false)
     }
@@ -429,14 +429,14 @@ export default function ReceiptsPage() {
 
       const result = data.results?.[0]
       if (result?.status === 'parsed') {
-        setEditorMsg('✅ Receipt parsed successfully')
+        setEditorMsg('Receipt parsed successfully')
       } else {
-        setEditorMsg(`❌ ${result?.message ?? 'Parse still failed'}`)
+        setEditorMsg(result?.message ?? 'Parse still failed')
       }
 
       await Promise.all([fetchReceipts(), fetchDetail(selectedId)])
     } catch (err) {
-      setEditorMsg(err instanceof Error ? `❌ ${err.message}` : '❌ Retry parse failed')
+      setEditorMsg(err instanceof Error ? err.message : 'Retry parse failed')
     } finally {
       setRetryingParse(false)
     }
@@ -455,11 +455,11 @@ export default function ReceiptsPage() {
       const updated = Number(data.updated ?? 0)
       const totalItems = Number(data.total ?? updated)
       setEditorMsg(updated > 0
-        ? `✅ Categorised ${updated}/${totalItems} items`
+        ? `Categorised ${updated}/${totalItems} items`
         : `No uncategorised items found${totalItems > 0 ? ', or AI returned no usable categories' : ''}`)
       await Promise.all([fetchReceipts(), fetchDetail(selectedId)])
     } catch (err) {
-      setEditorMsg(err instanceof Error ? `❌ ${err.message}` : '❌ AI categorisation failed')
+      setEditorMsg(err instanceof Error ? err.message : 'AI categorisation failed')
     } finally {
       setCategorisingItems(false)
     }
@@ -484,7 +484,7 @@ export default function ReceiptsPage() {
       setEditorMsg(null)
       await fetchReceipts()
     } catch (err) {
-      setEditorMsg(err instanceof Error ? `❌ ${err.message}` : '❌ Failed to delete receipt')
+      setEditorMsg(err instanceof Error ? err.message : 'Failed to delete receipt')
     } finally {
       setDeletingReceipt(false)
     }
@@ -508,24 +508,15 @@ export default function ReceiptsPage() {
   const someVisibleSelected = selectedReceiptIds.length > 0
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="premium-app-page">
       {summary && (
-        <section className="card p-5 md:p-6">
+        <section className="card premium-page-hero p-5 md:p-6">
           <div className="flex flex-col gap-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div className="flex flex-col gap-2">
                 <div className="card-label" style={{ marginBottom: 0 }}>Receipts</div>
-                <div
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 'clamp(1.75rem, 3vw, 2.5rem)',
-                    lineHeight: 0.98,
-                    letterSpacing: '-0.045em',
-                    color: 'var(--text)',
-                  }}
-                >
-                  Receipt operations.
-                </div>
+                <h1 className="premium-page-title">Receipt control.</h1>
+                <p className="premium-page-subtitle">Upload, parse, review, correct, and delete receipts from one clean queue.</p>
               </div>
 
               <div className="flex flex-wrap gap-3">
@@ -616,7 +607,7 @@ export default function ReceiptsPage() {
                 All Receipts ({total})
               </div>
             </div>
-            <button className="btn-ghost" onClick={fetchReceipts} style={{ fontSize: 11 }}>↻ Refresh</button>
+            <button className="btn-ghost" onClick={fetchReceipts} style={{ fontSize: 11 }}>Refresh</button>
           </div>
 
           <div
@@ -847,7 +838,7 @@ export default function ReceiptsPage() {
             </div>
             {selectedId && (
               <button className="btn-ghost" style={{ fontSize: 11 }} onClick={() => fetchDetail(selectedId)}>
-                ↻ Reload
+                Reload
               </button>
             )}
           </div>

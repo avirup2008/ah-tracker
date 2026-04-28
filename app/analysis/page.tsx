@@ -6,16 +6,15 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, LineChart, Line, Legend, Cell, ReferenceLine
 } from 'recharts'
-import { useTheme } from 'next-themes'
 
 const SECTIONS = [
-  { id: 'overview',   label: '📊 Overview'    },
-  { id: 'inflation',  label: '📈 Inflation'   },
-  { id: 'brand-switch', label: '🔄 Brand Switch' },
-  { id: 'product-catalog', label: '🧾 Product Families' },
-  { id: 'waste',      label: '🗑️ Waste'       },
-  { id: 'seasonality',label: '🌡️ Seasonality' },
-  { id: 'forecast',   label: '🔮 Forecast'    },
+  { id: 'overview',   label: 'Overview'    },
+  { id: 'inflation',  label: 'Inflation'   },
+  { id: 'brand-switch', label: 'Brand Switch' },
+  { id: 'product-catalog', label: 'Product Families' },
+  { id: 'waste',      label: 'Waste'       },
+  { id: 'seasonality',label: 'Seasonality' },
+  { id: 'forecast',   label: 'Forecast'    },
 ]
 
 export default function AnalysisPage() {
@@ -24,15 +23,14 @@ export default function AnalysisPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [active, setActive]  = useState('overview')
-  const { theme } = useTheme()
-  const isDark  = theme === 'dark'
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
-  const accent  = isDark ? '#FFB547' : '#BF7A18'
-  const warn    = isDark ? '#FF5F7E' : '#B83820'
-  const good    = isDark ? '#4ADE80' : '#1A6B3A'
-  const grid    = isDark ? '#252B40' : '#E4D9C8'
-  const muted   = isDark ? '#3D4860' : '#AE9E86'
+  const isDark  = true
+  const accent  = '#f5b54d'
+  const warn    = '#f08a65'
+  const good    = '#7ee4a3'
+  const grid    = 'rgba(159, 176, 208, 0.16)'
+  const muted   = 'rgba(146, 163, 195, 0.72)'
 
   useEffect(() => {
     fetch('/api/analysis?feature=all&period=month')
@@ -75,7 +73,7 @@ export default function AnalysisPage() {
   }
 
   if (loading) return (
-    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+    <div className="premium-app-page">
       <div className="section-nav animate-nav">
         {SECTIONS.map(s => <button key={s.id} className="section-nav-item">{s.label}</button>)}
       </div>
@@ -89,7 +87,8 @@ export default function AnalysisPage() {
   )
 
   if (error) return (
-    <div className="card p-5">
+    <div className="premium-app-page">
+      <div className="card premium-page-hero p-5">
       <div className="card-label" style={{ marginBottom: 8, color: 'var(--warn)' }}>Analysis failed to load</div>
       <p style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginBottom: 14 }}>
         {error}
@@ -101,6 +100,7 @@ export default function AnalysisPage() {
       >
         Reload analysis
       </button>
+      </div>
     </div>
   )
 
@@ -130,7 +130,13 @@ export default function AnalysisPage() {
   }, 0)
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="premium-app-page">
+
+      <section className="card premium-page-hero p-5">
+        <div className="card-label" style={{ marginBottom: 10 }}>Analysis</div>
+        <h1 className="premium-page-title">Find the drift.</h1>
+        <p className="premium-page-subtitle">Price changes, brand-switch opportunities, waste risks, and budget forecast in one analytical surface.</p>
+      </section>
 
       {/* ── Sticky section nav ──────────────────────────────── */}
       <nav className="section-nav animate-nav">
@@ -718,8 +724,8 @@ function SeasonalityChart({ data, isDark, accent, grid, muted }: {
                     </LineChart>
                   </ResponsiveContainer>
                   <div style={{ display:'flex', gap:16, marginTop:8, fontSize:11, fontFamily:'var(--font-body)' }}>
-                    <span style={{ color:good }}>📉 Buy in <strong>{minMonth}</strong> — €{minPrice.toFixed(2)}</span>
-                    <span style={{ color:warn }}>📈 Most expensive in <strong>{maxMonth}</strong> — €{maxPrice.toFixed(2)}</span>
+                    <span style={{ color:good }}>Buy in <strong>{minMonth}</strong> — €{minPrice.toFixed(2)}</span>
+                    <span style={{ color:warn }}>Most expensive in <strong>{maxMonth}</strong> — €{maxPrice.toFixed(2)}</span>
                     {savingPct > 0 && <span style={{ color:'var(--text-3)' }}>Timing saves up to {savingPct}%</span>}
                   </div>
                 </div>

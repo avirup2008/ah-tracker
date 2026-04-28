@@ -53,18 +53,17 @@ export default function DealsPage() {
   const categories = Array.from(new Set(deals.map(d => d.category).filter(Boolean)))
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="premium-app-page">
 
       {/* Header */}
-      <div className="card p-4 flex flex-wrap items-start justify-between gap-3">
+      <div className="card premium-page-hero p-4 flex flex-wrap items-start justify-between gap-6">
         <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.02em' }}>
-            AH Bonus Deals
-          </h1>
-          <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3, fontFamily: 'var(--font-body)' }}>
+          <div className="card-label" style={{ marginBottom: 10 }}>Deals</div>
+          <h1 className="premium-page-title">Bonus signals.</h1>
+          <p className="premium-page-subtitle">
             {data ? (
               <>
-                {data.usedFallback ? '🛟 Last good set' : data.cached ? '🗄️ Cached' : '🔄 Live'}
+                {data.usedFallback ? 'Last good set' : data.cached ? 'Cached' : 'Live'}
                 {' · '}
                 Fetched {formatDate(data.fetched_at, 'd MMM HH:mm')}
                 {' · '}
@@ -84,29 +83,8 @@ export default function DealsPage() {
               background: 'var(--surface2)', color: 'var(--text-2)', transition: 'all 0.15s',
             }}
           >
-            {refreshing ? 'Fetching...' : '↻ Refresh Deals'}
+            {refreshing ? 'Fetching...' : 'Refresh Deals'}
           </button>
-        </div>
-      </div>
-
-      {/* Explain */}
-      <div className="card p-4 flex items-start gap-3" style={{ background: 'var(--primary-light)', borderColor: 'color-mix(in srgb, var(--primary) 20%, transparent)' }}>
-        <span style={{ fontSize: 18 }}>🏷️</span>
-        <div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)', fontFamily: 'var(--font-body)', marginBottom: 3 }}>
-            How deals work
-          </p>
-          <p style={{ fontSize: 12, color: 'var(--text-2)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-            Deals are fetched via AI web search from ah.nl — updated every 24 hours. When you generate a meal plan,
-            ingredients on Bonus deal this week are automatically prioritised and flagged. Head to the{' '}
-            <strong>Meal Planner</strong> to generate a shopping list that maximises your Bonuskaart savings.
-          </p>
-          {data?.quality && (
-            <p style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginTop: 8 }}>
-              Quality check: {data.quality.unique_products} unique products across {data.quality.category_coverage} categories.
-              {data.usedFallback ? ' Showing the last good cached set because the latest refresh was weaker.' : ''}
-            </p>
-          )}
         </div>
       </div>
 
@@ -116,7 +94,7 @@ export default function DealsPage() {
         </div>
       ) : deals.length === 0 ? (
         <div className="card p-10" style={{ textAlign: 'center', color: 'var(--text-4)', fontSize: 13 }}>
-          No deals found. Try refreshing — this uses AI web search so it may take a moment.
+          No deals found. Try refreshing; this uses AI web search so it may take a moment.
         </div>
       ) : (
         <>

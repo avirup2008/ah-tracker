@@ -170,7 +170,7 @@ export default function MealPlannerPage() {
 
   const generate = async (regenerate = false) => {
     setGenerating(true)
-    setStatus('Generating your meal plan with AI...')
+      setStatus('Generating your meal plan with AI...')
     try {
       const res = await fetch('/api/meal-plan', {
         method: 'POST',
@@ -196,9 +196,9 @@ export default function MealPlannerPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Generation failed')
       setMealPlan(data)
-      setStatus('✅ Meal plan ready!')
+      setStatus('Meal plan ready.')
     } catch (err) {
-      setStatus(err instanceof Error ? `❌ ${err.message}` : '❌ Generation failed — try again')
+      setStatus(err instanceof Error ? err.message : 'Generation failed. Try again.')
     } finally {
       setGenerating(false)
     }
@@ -229,9 +229,9 @@ export default function MealPlannerPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to save defaults')
       applyPlannerDefaults(data as PlannerDefaultsPayload)
-      setStatus('✅ Weekly planner defaults saved for automations.')
+      setStatus('Weekly planner defaults saved for automations.')
     } catch (err) {
-      setStatus(err instanceof Error ? `❌ ${err.message}` : '❌ Failed to save defaults')
+      setStatus(err instanceof Error ? err.message : 'Failed to save defaults.')
     } finally {
       setDefaultsSaving(false)
     }
@@ -253,22 +253,19 @@ export default function MealPlannerPage() {
     DAYS.map(day => meals?.[type]?.find(m => m.day === day)).filter(Boolean) as Meal[]
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="premium-app-page">
 
       {/* Header row */}
-      <div className="card p-5 flex items-center justify-between">
+      <div className="card premium-page-hero p-5 flex flex-wrap items-end justify-between gap-6">
         <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.02em' }}>
-            Meal Planner
-          </h1>
-          <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3, fontFamily: 'var(--font-body)' }}>
-            Week of {formatWeekRange(weekSat)} · Indian &amp; European · Meal-prep Sunday
-          </p>
+          <div className="card-label" style={{ marginBottom: 10 }}>Meal Planner</div>
+          <h1 className="premium-page-title">Plan only what you need.</h1>
+          <p className="premium-page-subtitle">Week of {formatWeekRange(weekSat)} · {lunchCount} lunches · {dinnerCount} dinners</p>
         </div>
         {mealPlan && (
           <div className="flex gap-2">
-            <TabBtn active={view === 'plan'}     onClick={() => setView('plan')}>🍽️ Meal Plan</TabBtn>
-            <TabBtn active={view === 'shopping'} onClick={() => setView('shopping')}>🛒 Shopping List</TabBtn>
+            <TabBtn active={view === 'plan'}     onClick={() => setView('plan')}>Meal Plan</TabBtn>
+            <TabBtn active={view === 'shopping'} onClick={() => setView('shopping')}>Shopping List</TabBtn>
           </div>
         )}
       </div>
@@ -363,7 +360,7 @@ export default function MealPlannerPage() {
                 fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-body)', transition: 'all 0.2s',
               }}
             >
-              {generating ? 'Generating...' : '✨ Generate AI Meal Plan'}
+              {generating ? 'Generating...' : 'Generate AI Meal Plan'}
             </button>
             <button
               onClick={saveWeeklyDefaults}
@@ -397,8 +394,8 @@ export default function MealPlannerPage() {
 
             {/* Meal type toggle */}
             <div className="flex gap-2">
-              <TabBtn active={mealType === 'lunch'}  onClick={() => setMealType('lunch')}>☀️ Lunches</TabBtn>
-              <TabBtn active={mealType === 'dinner'} onClick={() => setMealType('dinner')}>🌙 Dinners</TabBtn>
+              <TabBtn active={mealType === 'lunch'}  onClick={() => setMealType('lunch')}>Lunches</TabBtn>
+              <TabBtn active={mealType === 'dinner'} onClick={() => setMealType('dinner')}>Dinners</TabBtn>
             </div>
 
             {/* Meal cards */}
@@ -464,7 +461,7 @@ export default function MealPlannerPage() {
                         ))}
                         {meal.tip && (
                           <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'var(--accent-dim)', border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)' }}>
-                            <p style={{ fontSize: 11.5, color: 'var(--text-2)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>💡 {meal.tip}</p>
+                            <p style={{ fontSize: 11.5, color: 'var(--text-2)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>{meal.tip}</p>
                           </div>
                         )}
                       </div>
@@ -630,7 +627,7 @@ export default function MealPlannerPage() {
                 disabled={generating}
                 style={{ padding: '9px 0', borderRadius: 100, border: 'none', cursor: 'pointer', background: 'var(--primary)', color: 'var(--bg)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-body)', width: '100%' }}
               >
-                {generating ? 'Generating...' : '↻ Regenerate Plan'}
+                {generating ? 'Generating...' : 'Regenerate Plan'}
               </button>
               <button
                 onClick={saveWeeklyDefaults}
@@ -1016,10 +1013,10 @@ function PantryPanel({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to save pantry item')
       onDraftChange({ name: '', quantity_note: '', category: '' })
-      setMessage('✅ Pantry updated')
+      setMessage('Pantry updated')
       await onRefresh()
     } catch (err) {
-      setMessage(err instanceof Error ? `❌ ${err.message}` : '❌ Failed to save pantry item')
+      setMessage(err instanceof Error ? err.message : 'Failed to save pantry item')
     } finally {
       setSaving(false)
     }
@@ -1032,10 +1029,10 @@ function PantryPanel({
       const res = await fetch(`/api/pantry/${id}`, { method: 'DELETE' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to remove pantry item')
-      setMessage('✅ Pantry updated')
+      setMessage('Pantry updated')
       await onRefresh()
     } catch (err) {
-      setMessage(err instanceof Error ? `❌ ${err.message}` : '❌ Failed to remove pantry item')
+      setMessage(err instanceof Error ? err.message : 'Failed to remove pantry item')
     } finally {
       setSaving(false)
     }
