@@ -106,12 +106,13 @@
 }
 
 .commandCopy p:last-child {
-  max-width: 580px;
-  margin: 28px 0 0;
-  color: rgba(246, 241, 232, 0.72);
-  font-size: clamp(21px, 2vw, 31px);
-  letter-spacing: -0.04em;
-  line-height: 1.2;
+  max-width: 540px;
+  margin: 46px 0 0;
+  color: rgba(246, 241, 232, 0.68);
+  font-family: var(--font-body);
+  font-size: clamp(20px, 1.65vw, 27px);
+  letter-spacing: -0.035em;
+  line-height: 1.24;
 }
 
 .commandPanel {
@@ -201,12 +202,13 @@
 }
 
 .monthTrendIntro p {
-  max-width: 440px;
-  margin: 24px 0 0;
-  color: rgba(246, 241, 232, 0.62);
-  font-size: clamp(18px, 1.6vw, 24px);
+  max-width: 480px;
+  margin: 44px 0 0;
+  color: rgba(246, 241, 232, 0.66);
+  font-family: var(--font-body);
+  font-size: clamp(19px, 1.45vw, 25px);
   letter-spacing: -0.035em;
-  line-height: 1.24;
+  line-height: 1.32;
 }
 
 .monthTrendTable {
@@ -734,6 +736,10 @@
     font-size: 20px;
   }
 
+  .commandCopy p:last-child {
+    margin-top: 34px;
+  }
+
   .commandPanel,
   .monthTrendTable,
   .dial,
@@ -757,6 +763,11 @@
   .monthTrendIntro h2 {
     font-size: clamp(42px, 13vw, 56px);
     letter-spacing: -0.06em;
+  }
+
+  .monthTrendIntro p {
+    margin-top: 30px;
+    font-size: 18px;
   }
 
   .monthTrendHead {

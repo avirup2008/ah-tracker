@@ -337,8 +337,7 @@ export default async function DashboardPage() {
             <span>{overMonthSpend ? 'over this month.' : 'left this month.'}</span>
           </h1>
           <p>
-            Projected month-end is {overMonth ? `${formatEuro(Math.abs(projectedDelta))} above` : `${formatEuro(projectedDelta)} under`} target, based on a {formatEuro(MONTHLY_TARGET)} monthly budget.
-            {' '}Budget month: {data.periodStart} to {data.periodEnd}.
+            Projected month-end is {overMonth ? `${formatEuro(Math.abs(projectedDelta))} above` : `${formatEuro(projectedDelta)} under`} target
           </p>
         </div>
 
