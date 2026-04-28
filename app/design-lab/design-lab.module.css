@@ -1,6 +1,7 @@
 .labPage {
   min-height: 100vh;
   margin: -20px -16px -96px;
+  overflow-x: hidden;
   color: #f7f2e9;
   background: #070a0f;
   font-family: var(--font-body);
@@ -167,6 +168,144 @@
 
 .commandStats strong {
   font-size: 21px;
+}
+
+.monthTrend {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.58fr) minmax(620px, 1fr);
+  gap: clamp(38px, 6vw, 98px);
+  align-items: start;
+  padding: clamp(28px, 5vw, 78px) clamp(22px, 5vw, 86px) clamp(72px, 9vh, 126px);
+  background:
+    radial-gradient(circle at 22% 12%, rgba(203, 139, 42, 0.12), transparent 25rem),
+    radial-gradient(circle at 86% 82%, rgba(73, 103, 148, 0.12), transparent 30rem),
+    #070a0f;
+}
+
+.monthTrendIntro {
+  position: sticky;
+  top: 112px;
+}
+
+.monthTrendIntro h2 {
+  max-width: 600px;
+  margin: 0;
+  color: #fff8eb;
+  font-family: var(--font-display);
+  font-size: clamp(52px, 6vw, 104px);
+  font-weight: 500;
+  letter-spacing: -0.08em;
+  line-height: 0.9;
+}
+
+.monthTrendIntro p {
+  max-width: 440px;
+  margin: 24px 0 0;
+  color: rgba(246, 241, 232, 0.62);
+  font-size: clamp(18px, 1.6vw, 24px);
+  letter-spacing: -0.035em;
+  line-height: 1.24;
+}
+
+.monthTrendTable {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.monthTrendHead,
+.monthTrendRow {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) minmax(230px, 1.18fr) 110px 130px;
+  gap: 18px;
+  align-items: center;
+}
+
+.monthTrendHead {
+  padding: 0 0 14px;
+  color: rgba(146, 163, 195, 0.82);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.monthTrendRow {
+  min-height: 98px;
+  border-top: 1px solid rgba(159, 176, 208, 0.15);
+  color: rgba(246, 241, 232, 0.86);
+}
+
+.monthTrendRow:last-child {
+  border-bottom: 1px solid rgba(159, 176, 208, 0.15);
+}
+
+.monthTrendMonth,
+.monthTrendSpend {
+  display: grid;
+  gap: 8px;
+}
+
+.monthTrendMonth strong,
+.monthTrendSpend strong,
+.monthTrendTargetValue,
+.monthTrendOver,
+.monthTrendUnder {
+  color: #fff8eb;
+  font-family: var(--font-mono);
+  font-size: clamp(16px, 1.3vw, 22px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.monthTrendMonth span {
+  color: rgba(146, 163, 195, 0.8);
+  font-size: 14px;
+}
+
+.monthTrendBar {
+  position: relative;
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(146, 163, 195, 0.14);
+}
+
+.monthTrendFill,
+.monthTrendFillOver {
+  position: absolute;
+  inset: 0 auto 0 0;
+  min-width: 4px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #e19d28, #7ee4a3);
+  box-shadow: 0 0 22px rgba(245, 181, 77, 0.22);
+}
+
+.monthTrendFillOver {
+  background: linear-gradient(90deg, #e19d28, #f06f4f);
+}
+
+.monthTrendTarget {
+  position: absolute;
+  top: -7px;
+  bottom: -7px;
+  z-index: 2;
+  width: 2px;
+  border-radius: 999px;
+  background: rgba(255, 248, 235, 0.74);
+}
+
+.monthTrendTargetValue {
+  color: rgba(246, 241, 232, 0.58);
+}
+
+.monthTrendOver {
+  color: #f08a65;
+}
+
+.monthTrendUnder {
+  color: #7ee4a3;
 }
 
 .grid {
@@ -420,8 +559,13 @@
 @media (max-width: 1100px) {
   .command,
   .studioTop,
-  .studioGrid {
+  .studioGrid,
+  .monthTrend {
     grid-template-columns: 1fr;
+  }
+
+  .monthTrendIntro {
+    position: static;
   }
 
   .osGrid {
@@ -506,5 +650,29 @@
   .commandStats,
   .osHeader {
     display: grid;
+  }
+
+  .monthTrend {
+    padding: 24px 24px 76px;
+  }
+
+  .monthTrendIntro h2 {
+    font-size: clamp(44px, 14vw, 62px);
+    letter-spacing: -0.06em;
+  }
+
+  .monthTrendHead {
+    display: none;
+  }
+
+  .monthTrendRow {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    min-height: 0;
+    padding: 22px 0;
+  }
+
+  .monthTrendTargetValue {
+    display: none;
   }
 }

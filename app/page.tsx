@@ -21,6 +21,14 @@ type DataPoint = {
   y: number
 }
 
+type BudgetMonthRow = {
+  period_start: string
+  period_end: string
+  label: string
+  total_spend: number
+  receipt_count: number
+}
+
 type DashboardData = {
   weekSpend: number
   weekSavings: number
@@ -30,6 +38,7 @@ type DashboardData = {
   periodStart: string
   periodEnd: string
   weeks: WeekRow[]
+  months: BudgetMonthRow[]
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,6 +53,19 @@ function chartLabel(value: string | undefined) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value.slice(5, 10)
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)
+}
+
+function rangeLabel(start: string, end: string) {
+  const startDate = new Date(start)
+  const endDate = new Date(end)
+  endDate.setDate(endDate.getDate() - 1)
+
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return `${start} to ${end}`
+  }
+
+  const formatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
+  return `${formatter.format(startDate)} to ${formatter.format(endDate)}`
 }
 
 function pathFromPoints(points: DataPoint[]) {
@@ -95,7 +117,7 @@ async function getDashboardData(): Promise<DashboardData> {
   const now = new Date()
   const period = getBudgetPeriod(now)
 
-  const [weekData, monthData, weeklyChart] = await Promise.all([
+  const [weekData, monthData, weeklyChart, budgetMonths] = await Promise.all([
     sql`
       SELECT week_saturday, COUNT(*) AS receipt_count,
         COALESCE(SUM(net_grocery_spend),0) AS total_spend,
@@ -123,6 +145,31 @@ async function getDashboardData(): Promise<DashboardData> {
       FROM receipts WHERE parsed=true
       GROUP BY week_saturday ORDER BY week_saturday DESC LIMIT 16
     `,
+    sql`
+      WITH periods AS (
+        SELECT
+          series::date AS period_start,
+          (series + interval '1 month')::date AS period_end
+        FROM generate_series(
+          ${period.startDate}::date - interval '5 months',
+          ${period.startDate}::date,
+          interval '1 month'
+        ) AS series
+      )
+      SELECT
+        TO_CHAR(periods.period_start, 'Mon YYYY') AS label,
+        TO_CHAR(periods.period_start, 'YYYY-MM-DD') AS period_start,
+        TO_CHAR(periods.period_end, 'YYYY-MM-DD') AS period_end,
+        ROUND(COALESCE(SUM(receipts.net_grocery_spend), 0)::numeric, 2) AS total_spend,
+        COUNT(receipts.id) AS receipt_count
+      FROM periods
+      LEFT JOIN receipts
+        ON receipts.parsed = true
+       AND receipts.receipt_date >= periods.period_start
+       AND receipts.receipt_date < periods.period_end
+      GROUP BY periods.period_start, periods.period_end
+      ORDER BY periods.period_start ASC
+    `,
   ])
 
   const weekSpend = Number(weekData[0]?.total_spend ?? 0)
@@ -139,6 +186,7 @@ async function getDashboardData(): Promise<DashboardData> {
     periodStart: period.startDate,
     periodEnd: period.endDate,
     weeks: plain([...weeklyChart].reverse()) as WeekRow[],
+    months: plain([...budgetMonths]) as BudgetMonthRow[],
   }
 }
 
@@ -175,6 +223,65 @@ function SpendCurve({ rows }: { rows: WeekRow[] }) {
         </text>
       ))}
     </svg>
+  )
+}
+
+function BudgetMonthTrend({ rows }: { rows: BudgetMonthRow[] }) {
+  const maxSpend = Math.max(MONTHLY_TARGET, ...rows.map((row) => Number(row.total_spend) || 0), 1)
+
+  return (
+    <section className={styles.monthTrend} aria-labelledby="month-trend-title">
+      <div className={styles.monthTrendIntro}>
+        <h2 id="month-trend-title">Budget months against target.</h2>
+        <p>
+          Salary-cycle months run from the 25th to the day before the next 25th.
+          Target stays fixed at {formatEuro(MONTHLY_TARGET)}.
+        </p>
+      </div>
+
+      <div className={styles.monthTrendTable}>
+        <div className={styles.monthTrendHead} aria-hidden="true">
+          <span>Month</span>
+          <span>Actual</span>
+          <span>Target</span>
+          <span>Variance</span>
+        </div>
+
+        {rows.map((row) => {
+          const spend = Number(row.total_spend) || 0
+          const delta = MONTHLY_TARGET - spend
+          const spentPct = Math.min(100, Math.round((spend / maxSpend) * 100))
+          const targetPct = Math.min(100, Math.round((MONTHLY_TARGET / maxSpend) * 100))
+          const overTarget = delta < 0
+          const receiptWord = Number(row.receipt_count) === 1 ? 'receipt' : 'receipts'
+
+          return (
+            <div className={styles.monthTrendRow} key={row.period_start}>
+              <div className={styles.monthTrendMonth}>
+                <strong>{row.label}</strong>
+                <span>{rangeLabel(row.period_start, row.period_end)} · {row.receipt_count} {receiptWord}</span>
+              </div>
+
+              <div className={styles.monthTrendSpend}>
+                <strong>{formatEuro(spend)}</strong>
+                <div className={styles.monthTrendBar} aria-hidden="true">
+                  <span className={styles.monthTrendTarget} style={{ left: `${targetPct}%` }} />
+                  <span
+                    className={overTarget ? styles.monthTrendFillOver : styles.monthTrendFill}
+                    style={{ width: `${spentPct}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.monthTrendTargetValue}>{formatEuro(MONTHLY_TARGET)}</div>
+              <div className={overTarget ? styles.monthTrendOver : styles.monthTrendUnder}>
+                {overTarget ? `${formatEuro(Math.abs(delta))} over` : `${formatEuro(delta)} left`}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
@@ -224,6 +331,8 @@ export default async function DashboardPage() {
           </div>
         </div>
       </section>
+
+      <BudgetMonthTrend rows={data.months} />
     </main>
   )
 }
