@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import sql from '@/lib/db'
 import { MONTHLY_TARGET, WEEKLY_BUDGET } from '@/lib/budget-constants'
+import { getBudgetPeriod } from '@/lib/budget-period'
 import { formatEuro } from '@/lib/utils'
 import styles from './design-lab/design-lab.module.css'
 
@@ -26,6 +27,8 @@ type DashboardData = {
   weekReceipts: number
   monthSpend: number
   projected: number
+  periodStart: string
+  periodEnd: string
   weeks: WeekRow[]
 }
 
@@ -90,8 +93,7 @@ function buildCurve(rows: WeekRow[], width = 920, height = 320) {
 
 async function getDashboardData(): Promise<DashboardData> {
   const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
+  const period = getBudgetPeriod(now)
 
   const [weekData, monthData, weeklyChart] = await Promise.all([
     sql`
@@ -109,8 +111,10 @@ async function getDashboardData(): Promise<DashboardData> {
       SELECT COALESCE(SUM(net_grocery_spend),0) AS total_spend,
              COALESCE(SUM(bonus_savings),0) AS total_savings,
              COUNT(*) AS receipt_count
-      FROM receipts WHERE parsed=true
-        AND year=${year} AND month=${month}
+      FROM receipts
+      WHERE parsed=true
+        AND receipt_date >= ${period.startDate}::date
+        AND receipt_date < ${period.endDate}::date
     `,
     sql`
       SELECT TO_CHAR(week_saturday,'YYYY-MM-DD') AS week_saturday,
@@ -123,15 +127,17 @@ async function getDashboardData(): Promise<DashboardData> {
 
   const weekSpend = Number(weekData[0]?.total_spend ?? 0)
   const monthSpend = Number(monthData[0]?.total_spend ?? 0)
-  const today = now.getDate()
-  const daysInMonth = new Date(year, month, 0).getDate()
 
   return {
     weekSpend,
     weekSavings: Number(weekData[0]?.total_savings ?? 0),
     weekReceipts: Number(weekData[0]?.receipt_count ?? 0),
     monthSpend,
-    projected: today > 0 ? Math.round((monthSpend / today) * daysInMonth * 100) / 100 : 0,
+    projected: period.elapsedDays > 0
+      ? Math.round((monthSpend / period.elapsedDays) * period.totalDays * 100) / 100
+      : 0,
+    periodStart: period.startDate,
+    periodEnd: period.endDate,
     weeks: plain([...weeklyChart].reverse()) as WeekRow[],
   }
 }
@@ -200,7 +206,8 @@ export default async function DashboardPage() {
             <span>{overMonthSpend ? 'over this month.' : 'left this month.'}</span>
           </h1>
           <p>
-            {overMonth ? `${formatEuro(Math.abs(projectedDelta))} above` : `${formatEuro(projectedDelta)} under`} projected month-end target, based on a {formatEuro(MONTHLY_TARGET)} monthly budget.
+            Projected month-end is {overMonth ? `${formatEuro(Math.abs(projectedDelta))} above` : `${formatEuro(projectedDelta)} under`} target, based on a {formatEuro(MONTHLY_TARGET)} monthly budget.
+            {' '}Budget month: {data.periodStart} to {data.periodEnd}.
           </p>
         </div>
 

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import sql from '@/lib/db'
+import { MONTHLY_TARGET, WEEKLY_BUDGET } from '@/lib/budget-constants'
+import { getBudgetPeriod } from '@/lib/budget-period'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -9,22 +11,26 @@ export async function GET() {
     const now = new Date()
     const yr = now.getFullYear()
     const mo = now.getMonth() + 1
-    const today = now.getDate()
-    const daysInMonth = new Date(yr, mo, 0).getDate()
-    const WEEKLY = 90
-    const MONTHLY = Math.round(WEEKLY * 4.33 * 100) / 100
+    const period = getBudgetPeriod(now)
+    const WEEKLY = WEEKLY_BUDGET
+    const MONTHLY = MONTHLY_TARGET
     const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
     const [thisMonth, lastMonth, allMonths, weekly8, topItems, bonusData] = await Promise.all([
       sql`SELECT COALESCE(SUM(net_grocery_spend),0) AS spend,
                  COALESCE(SUM(bonus_savings),0) AS savings,
                  COUNT(*) AS trips
-          FROM receipts WHERE parsed=true AND year=${yr} AND month=${mo}`,
+          FROM receipts
+          WHERE parsed=true
+            AND receipt_date >= ${period.startDate}::date
+            AND receipt_date < ${period.endDate}::date`,
       sql`SELECT COALESCE(SUM(net_grocery_spend),0) AS spend,
                  COALESCE(SUM(bonus_savings),0) AS savings,
                  COUNT(*) AS trips
-          FROM receipts WHERE parsed=true
-            AND year=${mo===1?yr-1:yr} AND month=${mo===1?12:mo-1}`,
+          FROM receipts
+          WHERE parsed=true
+            AND receipt_date >= ${period.previousStartDate}::date
+            AND receipt_date < ${period.previousEndDate}::date`,
       sql`SELECT year, month,
                  ROUND(SUM(net_grocery_spend)::numeric,2) AS spend,
                  ROUND(SUM(bonus_savings)::numeric,2) AS savings,
@@ -52,8 +58,8 @@ export async function GET() {
     const savings   = Number(thisMonth[0]?.savings  ?? 0)
     const trips     = Number(thisMonth[0]?.trips    ?? 0)
     const lastSpend = Number(lastMonth[0]?.spend    ?? 0)
-    const projected = today > 0 ? Math.round((spent/today)*daysInMonth*100)/100 : 0
-    const dayRate   = today > 0 ? Math.round((spent/today)*100)/100 : 0
+    const projected = period.elapsedDays > 0 ? Math.round((spent / period.elapsedDays) * period.totalDays * 100) / 100 : 0
+    const dayRate   = period.elapsedDays > 0 ? Math.round((spent / period.elapsedDays) * 100) / 100 : 0
     const bonusTotal= Number(bonusData[0]?.total    ?? 0)
 
     const history = (allMonths as Record<string,unknown>[]).map(r => ({
@@ -81,10 +87,10 @@ export async function GET() {
 
     const prompt = `You are a personal finance analyst reviewing grocery spending for a household in Beverwijk, Netherlands. Be direct and use exact numbers from the data. No generic advice.
 
-THIS MONTH (${MONTHS[mo-1]} ${yr}, day ${today} of ${daysInMonth}):
+THIS BUDGET MONTH (${period.startDate} to ${period.endDate}, day ${period.elapsedDays} of ${period.totalDays}):
 - Spent: €${spent.toFixed(2)} | Daily rate: €${dayRate}/day | Projected: €${projected.toFixed(2)}
 - Monthly target: €${MONTHLY.toFixed(2)} | Status: ${projected>MONTHLY?`€${(projected-MONTHLY).toFixed(2)} OVER target`:`€${(MONTHLY-projected).toFixed(2)} under target`}
-- vs ${MONTHS[mo===1?11:mo-2]}: €${lastSpend.toFixed(2)} (${moChange}% change)
+- vs previous budget month: €${lastSpend.toFixed(2)} (${moChange}% change)
 - Bonus savings: €${savings.toFixed(2)} | Trips: ${trips}
 
 RECENT 8 WEEKS (newest first):
@@ -113,7 +119,7 @@ Three numbered, specific actions based on what the data actually shows. Referenc
 
     return NextResponse.json({
       prompt,
-      context: { spent, projected, savings, trips, lastSpend, dayRate, avgMonthly, avgWeekly, highMonths, bonusTotal, MONTHLY, WEEKLY, monthName: MONTHS[mo-1], yr }
+      context: { spent, projected, savings, trips, lastSpend, dayRate, avgMonthly, avgWeekly, highMonths, bonusTotal, MONTHLY, WEEKLY, monthName: MONTHS[mo-1], yr, budgetPeriodStart: period.startDate, budgetPeriodEnd: period.endDate }
     })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })

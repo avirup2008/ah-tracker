@@ -1,5 +1,6 @@
 import sql from './db'
 import { MONTHLY_TARGET, WEEKLY_BUDGET } from './budget-constants'
+import { getBudgetPeriod } from './budget-period'
 
 export interface BudgetSnapshot {
   week_saturday: string | null
@@ -18,6 +19,8 @@ export interface BudgetSnapshot {
   daily_budget_remaining: number
   recent_week_average: number
   recent_over_budget_weeks: number
+  budget_period_start: string
+  budget_period_end: string
 }
 
 function roundMoney(value: number) {
@@ -25,10 +28,7 @@ function roundMoney(value: number) {
 }
 
 export async function getBudgetSnapshot(now = new Date()): Promise<BudgetSnapshot> {
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
-  const day = now.getDate()
-  const daysInMonth = new Date(year, month, 0).getDate()
+  const period = getBudgetPeriod(now)
 
   const [currentWeekRows, monthRows, recentWeeks] = await Promise.all([
     sql`
@@ -52,8 +52,8 @@ export async function getBudgetSnapshot(now = new Date()): Promise<BudgetSnapsho
       SELECT COALESCE(SUM(net_grocery_spend), 0) AS total_spend
       FROM receipts
       WHERE parsed = true
-        AND year = ${year}
-        AND month = ${month}
+        AND receipt_date >= ${period.startDate}::date
+        AND receipt_date < ${period.endDate}::date
     `,
     sql`
       SELECT
@@ -72,10 +72,10 @@ export async function getBudgetSnapshot(now = new Date()): Promise<BudgetSnapsho
   const weekSavings = Number(currentWeek?.total_savings ?? 0)
   const weekReceipts = Number(currentWeek?.receipt_count ?? 0)
   const monthSpend = Number(monthRows[0]?.total_spend ?? 0)
-  const projectedMonthEnd = day > 0 ? roundMoney((monthSpend / day) * daysInMonth) : 0
+  const projectedMonthEnd = period.elapsedDays > 0 ? roundMoney((monthSpend / period.elapsedDays) * period.totalDays) : 0
   const weeklyPctUsed = Math.round((weekSpend / WEEKLY_BUDGET) * 100)
   const weeklyOverAmount = Math.max(0, roundMoney(weekSpend - WEEKLY_BUDGET))
-  const remainingDays = Math.max(0, daysInMonth - day)
+  const remainingDays = period.remainingDays
   const dailyBudgetRemaining = remainingDays > 0
     ? Math.max(0, roundMoney((MONTHLY_TARGET - monthSpend) / remainingDays))
     : 0
@@ -103,5 +103,7 @@ export async function getBudgetSnapshot(now = new Date()): Promise<BudgetSnapsho
     daily_budget_remaining: dailyBudgetRemaining,
     recent_week_average: recentWeekAverage,
     recent_over_budget_weeks: recentOverBudgetWeeks,
+    budget_period_start: period.startDate,
+    budget_period_end: period.endDate,
   }
 }

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import sql from '@/lib/db'
 import { MONTHLY_TARGET, WEEKLY_BUDGET } from '@/lib/budget-constants'
+import { getBudgetPeriod } from '@/lib/budget-period'
 import { formatEuro } from '@/lib/utils'
 import styles from './design-lab.module.css'
 
@@ -93,8 +94,7 @@ function plain(rows: any[]): any[] {
 
 async function getLabData(): Promise<LabData> {
   const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
+  const period = getBudgetPeriod(now)
 
   const [weekData, monthData, weeklyChart, totalCount] = await Promise.all([
     sql`
@@ -112,8 +112,10 @@ async function getLabData(): Promise<LabData> {
       SELECT COALESCE(SUM(net_grocery_spend),0) AS total_spend,
              COALESCE(SUM(bonus_savings),0) AS total_savings,
              COUNT(*) AS receipt_count
-      FROM receipts WHERE parsed=true
-        AND year=${year} AND month=${month}
+      FROM receipts
+      WHERE parsed=true
+        AND receipt_date >= ${period.startDate}::date
+        AND receipt_date < ${period.endDate}::date
     `,
     sql`
       SELECT TO_CHAR(week_saturday,'YYYY-MM-DD') AS week_saturday,
@@ -127,15 +129,15 @@ async function getLabData(): Promise<LabData> {
 
   const weekSpend = Number(weekData[0]?.total_spend ?? 0)
   const monthSpend = Number(monthData[0]?.total_spend ?? 0)
-  const today = now.getDate()
-  const daysInMonth = new Date(year, month, 0).getDate()
 
   return {
     weekSpend,
     weekSavings: Number(weekData[0]?.total_savings ?? 0),
     weekReceipts: Number(weekData[0]?.receipt_count ?? 0),
     monthSpend,
-    projected: today > 0 ? Math.round((monthSpend / today) * daysInMonth * 100) / 100 : 0,
+    projected: period.elapsedDays > 0
+      ? Math.round((monthSpend / period.elapsedDays) * period.totalDays * 100) / 100
+      : 0,
     totalReceipts: Number(totalCount[0]?.count ?? 0),
     weeks: plain([...weeklyChart].reverse()) as WeekRow[],
   }

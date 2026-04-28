@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
+import { MONTHLY_TARGET } from '@/lib/budget-constants'
+import { getBudgetPeriod } from '@/lib/budget-period'
 import { buildSubstitutionRecommendations, getInflationInsights, getProductCatalog } from '@/lib/product-intelligence'
 
 export const runtime = 'nodejs'
@@ -170,40 +172,41 @@ export async function GET(req: NextRequest) {
 
     // ── H: Budget forecast ─────────────────────────────────────
     if (feature === 'all' || feature === 'forecast') {
-      const now  = new Date()
-      const yr   = now.getFullYear()
-      const mo   = now.getMonth() + 1
-      const day  = now.getDate()
-      const dims = new Date(yr, mo, 0).getDate()
+      const period = getBudgetPeriod(new Date())
       const rows = await sql`
         SELECT COALESCE(SUM(net_grocery_spend), 0) AS spent_so_far
-        FROM receipts WHERE parsed = true AND year = ${yr} AND month = ${mo}
+        FROM receipts
+        WHERE parsed = true
+          AND receipt_date >= ${period.startDate}::date
+          AND receipt_date < ${period.endDate}::date
       `
       const spent     = Number(rows[0]?.spent_so_far ?? 0)
-      const target    = Math.round(90 * 4.33 * 100) / 100
-      const projected = Math.round((spent / Math.max(1, day)) * dims * 100) / 100
+      const projected = Math.round((spent / Math.max(1, period.elapsedDays)) * period.totalDays * 100) / 100
       data.forecast = {
         spentSoFar:           spent,
         projected,
-        monthlyTarget:        target,
-        onTrack:              projected <= target,
-        remainingDays:        dims - day,
-        dailyBudgetRemaining: Math.max(0, Math.round(((target - spent) / Math.max(1, dims - day)) * 100) / 100),
+        monthlyTarget:        MONTHLY_TARGET,
+        onTrack:              projected <= MONTHLY_TARGET,
+        remainingDays:        period.remainingDays,
+        dailyBudgetRemaining: Math.max(0, Math.round(((MONTHLY_TARGET - spent) / Math.max(1, period.remainingDays)) * 100) / 100),
+        periodStart:          period.startDate,
+        periodEnd:            period.endDate,
       }
     }
 
     // ── Categories ─────────────────────────────────────────────
     if (feature === 'all' || feature === 'categories') {
       const period = searchParams.get('period') ?? 'all'
-      const yr = new Date().getFullYear()
-      const mo = new Date().getMonth() + 1
+      const budgetPeriod = getBudgetPeriod(new Date())
       const rows = period === 'month'
         ? await sql`
             SELECT ri.category,
               ROUND(SUM(ri.total_price)::numeric, 2) AS total,
               COUNT(*) AS item_count
             FROM receipt_items ri JOIN receipts r ON ri.receipt_id = r.id
-            WHERE r.parsed = true AND r.year = ${yr} AND r.month = ${mo}
+            WHERE r.parsed = true
+              AND r.receipt_date >= ${budgetPeriod.startDate}::date
+              AND r.receipt_date < ${budgetPeriod.endDate}::date
               AND ri.is_koopzegel = false AND ri.is_statiegeld = false
               AND ri.category IS NOT NULL
             GROUP BY ri.category ORDER BY total DESC`
