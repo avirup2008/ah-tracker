@@ -437,11 +437,29 @@
   .labNav {
     right: 12px;
     left: 12px;
+    gap: 12px;
+    padding: 12px 16px;
     overflow-x: auto;
+    font-size: 10px;
+    scrollbar-width: none;
+  }
+
+  .labNav::-webkit-scrollbar {
+    display: none;
   }
 
   .labNav div {
     min-width: max-content;
+    gap: 14px;
+  }
+
+  .labBrand {
+    font-size: 0;
+  }
+
+  .labBrand::after {
+    content: "AH";
+    font-size: 10px;
   }
 
   .concept {
