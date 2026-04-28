@@ -174,9 +174,9 @@ function SpendCurve({ rows }: { rows: WeekRow[] }) {
 
 export default async function DashboardPage() {
   const data = await getDashboardData()
-  const remaining = WEEKLY_BUDGET - data.weekSpend
+  const monthRemaining = MONTHLY_TARGET - data.monthSpend
   const projectedDelta = MONTHLY_TARGET - data.projected
-  const overWeek = remaining < 0
+  const overMonthSpend = monthRemaining < 0
   const overMonth = projectedDelta < 0
   const receiptWord = data.weekReceipts === 1 ? 'receipt' : 'receipts'
 
@@ -196,24 +196,24 @@ export default async function DashboardPage() {
         <div className={styles.commandCopy}>
           <p className={styles.kicker}>Grocery spend signal</p>
           <h1>
-            <span>{overWeek ? formatEuro(Math.abs(remaining)) : formatEuro(remaining)}</span>
-            <span>{overWeek ? 'over this week.' : 'left this week.'}</span>
+            <span>{overMonthSpend ? formatEuro(Math.abs(monthRemaining)) : formatEuro(monthRemaining)}</span>
+            <span>{overMonthSpend ? 'over this month.' : 'left this month.'}</span>
           </h1>
           <p>
-            {overMonth ? `${formatEuro(Math.abs(projectedDelta))} above` : `${formatEuro(projectedDelta)} under`} month-end target with {data.weekReceipts} {receiptWord} logged this week.
+            {overMonth ? `${formatEuro(Math.abs(projectedDelta))} above` : `${formatEuro(projectedDelta)} under`} projected month-end target, based on a {formatEuro(MONTHLY_TARGET)} monthly budget.
           </p>
         </div>
 
         <div className={styles.commandPanel}>
           <div className={styles.panelHeader}>
-            <span>Spend trajectory</span>
-            <strong>{formatEuro(WEEKLY_BUDGET)} weekly target</strong>
+            <span>Weekly shop trajectory</span>
+            <strong>{formatEuro(WEEKLY_BUDGET)} weekly reference</strong>
           </div>
           <SpendCurve rows={data.weeks} />
           <div className={styles.commandStats}>
-            <span><strong>{formatEuro(data.weekSpend)}</strong> week spend</span>
+            <span><strong>{formatEuro(data.weekSpend)}</strong> latest week · {data.weekReceipts} {receiptWord}</span>
             <span><strong>{formatEuro(data.monthSpend)}</strong> month logged</span>
-            <span><strong>{formatEuro(data.weekSavings)}</strong> bonus saved</span>
+            <span><strong>{formatEuro(data.weekSavings)}</strong> weekly bonus saved</span>
           </div>
         </div>
       </section>
