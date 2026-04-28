@@ -1,0 +1,289 @@
+import Link from 'next/link'
+import sql from '@/lib/db'
+import { MONTHLY_TARGET, WEEKLY_BUDGET } from '@/lib/budget-constants'
+import { formatEuro } from '@/lib/utils'
+import styles from './design-lab.module.css'
+
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
+
+type WeekRow = {
+  week_saturday?: string
+  total_spend: number
+  receipt_count?: number
+}
+
+type DataPoint = {
+  label: string
+  value: number
+  x: number
+  y: number
+}
+
+type LabData = {
+  weekSpend: number
+  weekSavings: number
+  weekReceipts: number
+  monthSpend: number
+  projected: number
+  totalReceipts: number
+  weeks: WeekRow[]
+}
+
+function chartLabel(value: string | undefined) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value.slice(5, 10)
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)
+}
+
+function pathFromPoints(points: DataPoint[]) {
+  return points.reduce((path, point, index) => {
+    if (index === 0) return `M ${point.x.toFixed(1)} ${point.y.toFixed(1)}`
+
+    const previous = points[index - 1]
+    const handle = Math.max(26, (point.x - previous.x) * 0.42)
+    return `${path} C ${(previous.x + handle).toFixed(1)} ${previous.y.toFixed(1)}, ${(point.x - handle).toFixed(1)} ${point.y.toFixed(1)}, ${point.x.toFixed(1)} ${point.y.toFixed(1)}`
+  }, '')
+}
+
+function buildCurve(rows: WeekRow[], width = 920, height = 320) {
+  const source = rows.length > 0 ? rows : [{ week_saturday: '', total_spend: 0 }]
+  const values = source.map((row) => Number(row.total_spend) || 0)
+  const max = Math.max(320, Math.ceil(Math.max(WEEKLY_BUDGET, ...values, 1) / 80) * 80)
+  const left = 34
+  const right = width - 26
+  const top = 26
+  const bottom = height - 42
+  const range = bottom - top
+
+  const points = source.map((row, index) => {
+    const value = Number(row.total_spend) || 0
+    const x = left + (index / Math.max(source.length - 1, 1)) * (right - left)
+    const y = bottom - (value / max) * range
+    return { label: chartLabel(row.week_saturday), value, x, y }
+  })
+  const line = pathFromPoints(points)
+  const first = points[0]
+  const last = points.at(-1) ?? first
+  const area = `${line} L ${last.x.toFixed(1)} ${bottom} L ${first.x.toFixed(1)} ${bottom} Z`
+  const targetY = bottom - (WEEKLY_BUDGET / max) * range
+  const peak = points.reduce((highest, point) => point.value > highest.value ? point : highest, points[0])
+
+  return {
+    area,
+    line,
+    targetY,
+    peak,
+    latest: last,
+    labels: points.filter((_, index) => index === 0 || index === points.length - 1 || index % 3 === 0),
+    ticks: [320, 240, 160, 80].filter((tick) => tick <= max).map((tick) => ({
+      value: tick,
+      y: bottom - (tick / max) * range,
+    })),
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function plain(rows: any[]): any[] {
+  return JSON.parse(JSON.stringify(rows, (_key, value) =>
+    value instanceof Date ? value.toISOString().slice(0, 10) : value
+  ))
+}
+
+async function getLabData(): Promise<LabData> {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+
+  const [weekData, monthData, weeklyChart, totalCount] = await Promise.all([
+    sql`
+      SELECT week_saturday, COUNT(*) AS receipt_count,
+        COALESCE(SUM(net_grocery_spend),0) AS total_spend,
+        COALESCE(SUM(bonus_savings),0) AS total_savings
+      FROM receipts WHERE parsed=true
+        AND week_saturday = (
+          SELECT week_saturday FROM receipts WHERE parsed=true
+          ORDER BY receipt_date DESC LIMIT 1
+        )
+      GROUP BY week_saturday
+    `,
+    sql`
+      SELECT COALESCE(SUM(net_grocery_spend),0) AS total_spend,
+             COALESCE(SUM(bonus_savings),0) AS total_savings,
+             COUNT(*) AS receipt_count
+      FROM receipts WHERE parsed=true
+        AND year=${year} AND month=${month}
+    `,
+    sql`
+      SELECT TO_CHAR(week_saturday,'YYYY-MM-DD') AS week_saturday,
+             ROUND(SUM(net_grocery_spend)::numeric,2) AS total_spend,
+             COUNT(*) AS receipt_count
+      FROM receipts WHERE parsed=true
+      GROUP BY week_saturday ORDER BY week_saturday DESC LIMIT 16
+    `,
+    sql`SELECT COUNT(*) AS count FROM receipts`,
+  ])
+
+  const weekSpend = Number(weekData[0]?.total_spend ?? 0)
+  const monthSpend = Number(monthData[0]?.total_spend ?? 0)
+  const today = now.getDate()
+  const daysInMonth = new Date(year, month, 0).getDate()
+
+  return {
+    weekSpend,
+    weekSavings: Number(weekData[0]?.total_savings ?? 0),
+    weekReceipts: Number(weekData[0]?.receipt_count ?? 0),
+    monthSpend,
+    projected: today > 0 ? Math.round((monthSpend / today) * daysInMonth * 100) / 100 : 0,
+    totalReceipts: Number(totalCount[0]?.count ?? 0),
+    weeks: plain([...weeklyChart].reverse()) as WeekRow[],
+  }
+}
+
+function SpendCurve({
+  id,
+  rows,
+  className,
+  showLabels = true,
+}: {
+  id: string
+  rows: WeekRow[]
+  className?: string
+  showLabels?: boolean
+}) {
+  const curve = buildCurve(rows)
+
+  return (
+    <svg className={className} viewBox="0 0 920 320" role="img" aria-labelledby={`${id}-title`}>
+      <title id={`${id}-title`}>Recent weekly grocery spend</title>
+      <defs>
+        <linearGradient id={`${id}-line`} x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0%" stopColor="#f5b54d" />
+          <stop offset="55%" stopColor="#e8d7a8" />
+          <stop offset="100%" stopColor="#7ee4a3" />
+        </linearGradient>
+        <linearGradient id={`${id}-area`} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#f5b54d" stopOpacity="0.24" />
+          <stop offset="100%" stopColor="#f5b54d" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {curve.ticks.map((tick) => (
+        <g key={tick.value}>
+          <line className={styles.grid} x1="34" x2="894" y1={tick.y} y2={tick.y} />
+          {showLabels && <text className={styles.yAxis} x="0" y={tick.y + 5}>€{tick.value}</text>}
+        </g>
+      ))}
+      <line className={styles.target} x1="34" x2="894" y1={curve.targetY} y2={curve.targetY} />
+      <path d={curve.area} fill={`url(#${id}-area)`} />
+      <path d={curve.line} className={styles.curveLine} stroke={`url(#${id}-line)`} />
+      <circle cx={curve.latest.x} cy={curve.latest.y} r="5.5" className={styles.latestDot} />
+      {showLabels && curve.labels.map((label) => (
+        <text key={`${label.label}-${label.x}`} className={styles.xAxis} x={label.x} y="312">
+          {label.label}
+        </text>
+      ))}
+    </svg>
+  )
+}
+
+export default async function DesignLabPage() {
+  const data = await getLabData()
+  const remaining = WEEKLY_BUDGET - data.weekSpend
+  const projectedDelta = MONTHLY_TARGET - data.projected
+  const overWeek = remaining < 0
+  const overMonth = projectedDelta < 0
+  const progress = Math.min(100, Math.round((data.weekSpend / WEEKLY_BUDGET) * 100))
+  const receiptWord = data.weekReceipts === 1 ? 'receipt' : 'receipts'
+
+  return (
+    <main className={`${styles.labPage} labPage`}>
+      <nav className={styles.labNav} aria-label="Design lab">
+        <Link href="/" className={styles.labBrand}>AH Tracker</Link>
+        <div>
+          <a href="#concept-a">A. Command</a>
+          <a href="#concept-b">B. Studio</a>
+          <a href="#concept-c">C. OS</a>
+        </div>
+      </nav>
+
+      <section id="concept-a" className={`${styles.concept} ${styles.command}`}>
+        <div className={styles.commandCopy}>
+          <p className={styles.kicker}>Concept A · Command signal</p>
+          <h1>
+            <span>{overWeek ? formatEuro(Math.abs(remaining)) : formatEuro(remaining)}</span>
+            <span>{overWeek ? 'over this week.' : 'left this week.'}</span>
+          </h1>
+          <p>
+            {overMonth ? `${formatEuro(Math.abs(projectedDelta))} above` : `${formatEuro(projectedDelta)} under`} month-end target with {data.weekReceipts} {receiptWord} logged this week.
+          </p>
+        </div>
+        <div className={styles.commandPanel}>
+          <div className={styles.panelHeader}>
+            <span>Spend trajectory</span>
+            <strong>{formatEuro(WEEKLY_BUDGET)} weekly target</strong>
+          </div>
+          <SpendCurve id="command" rows={data.weeks} className={styles.commandChart} />
+          <div className={styles.commandStats}>
+            <span><strong>{formatEuro(data.weekSpend)}</strong> week spend</span>
+            <span><strong>{formatEuro(data.monthSpend)}</strong> month logged</span>
+            <span><strong>{formatEuro(data.weekSavings)}</strong> bonus saved</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="concept-b" className={`${styles.concept} ${styles.studio}`}>
+        <div className={styles.studioTop}>
+          <p className={styles.kicker}>Concept B · Budget studio</p>
+          <h2>Quiet, readable, and useful first.</h2>
+          <p>Built around one spend dial, one trend, and three decisions. No hero spectacle.</p>
+        </div>
+        <div className={styles.studioGrid}>
+          <div className={styles.dial} style={{ '--progress': `${progress}%` } as React.CSSProperties}>
+            <span>{progress}%</span>
+            <strong>{formatEuro(data.weekSpend)}</strong>
+            <small>of {formatEuro(WEEKLY_BUDGET)} used</small>
+          </div>
+          <div className={styles.studioTrend}>
+            <SpendCurve id="studio" rows={data.weeks} className={styles.studioChart} showLabels={false} />
+          </div>
+          <div className={styles.decisionList}>
+            <span>Next useful move</span>
+            <strong>{overWeek ? 'Hold grocery spend until next reset.' : `Keep next shop below ${formatEuro(Math.max(0, remaining))}.`}</strong>
+            <p>Month projection is {formatEuro(data.projected)} against {formatEuro(MONTHLY_TARGET)}.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="concept-c" className={`${styles.concept} ${styles.operating}`}>
+        <div className={styles.osHeader}>
+          <div>
+            <p className={styles.kicker}>Concept C · Grocery OS</p>
+            <h2>Home as a control room, not a poster.</h2>
+          </div>
+          <Link href="/receipts">Open receipts</Link>
+        </div>
+        <div className={styles.osGrid}>
+          <div className={styles.osMetric}>
+            <span>Week remaining</span>
+            <strong>{formatEuro(remaining)}</strong>
+            <small>{data.weekReceipts} {receiptWord} this week</small>
+          </div>
+          <div className={styles.osMetric}>
+            <span>Month projection</span>
+            <strong>{formatEuro(data.projected)}</strong>
+            <small>{overMonth ? 'above target' : 'under target'}</small>
+          </div>
+          <div className={styles.osMetric}>
+            <span>Receipts loaded</span>
+            <strong>{data.totalReceipts}</strong>
+            <small>{formatEuro(data.weekSavings)} bonus saved</small>
+          </div>
+          <div className={styles.osChart}>
+            <SpendCurve id="operating" rows={data.weeks} className={styles.operatingChart} />
+          </div>
+        </div>
+      </section>
+    </main>
+  )
+}
