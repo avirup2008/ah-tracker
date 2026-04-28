@@ -3,7 +3,12 @@
   margin: -20px -16px -96px;
   overflow-x: hidden;
   color: #f7f2e9;
-  background: #070a0f;
+  background:
+    radial-gradient(circle at 14% 18%, rgba(203, 139, 42, 0.24), transparent 31rem),
+    radial-gradient(circle at 82% 16%, rgba(73, 103, 148, 0.22), transparent 34rem),
+    radial-gradient(circle at 18% 66%, rgba(203, 139, 42, 0.12), transparent 30rem),
+    radial-gradient(circle at 82% 72%, rgba(73, 103, 148, 0.14), transparent 34rem),
+    linear-gradient(135deg, #080b11 0%, #0a111c 42%, #070a0f 100%);
   font-family: var(--font-body);
 }
 
@@ -83,10 +88,7 @@
   grid-template-columns: minmax(340px, 0.92fr) minmax(560px, 1.08fr);
   gap: clamp(42px, 7vw, 112px);
   align-items: center;
-  background:
-    radial-gradient(circle at 14% 32%, rgba(203, 139, 42, 0.24), transparent 30rem),
-    radial-gradient(circle at 82% 22%, rgba(73, 103, 148, 0.22), transparent 32rem),
-    linear-gradient(135deg, #080b11 0%, #0a111c 100%);
+  background: transparent;
 }
 
 .commandCopy {
@@ -178,11 +180,7 @@
   align-items: center;
   min-height: 100vh;
   padding: clamp(86px, 10vh, 132px) clamp(22px, 5vw, 86px) clamp(72px, 9vh, 126px);
-  background:
-    linear-gradient(180deg, rgba(7, 10, 15, 0) 0%, #070a0f 17%),
-    radial-gradient(circle at 16% 34%, rgba(203, 139, 42, 0.18), transparent 28rem),
-    radial-gradient(circle at 82% 52%, rgba(73, 103, 148, 0.16), transparent 32rem),
-    #070a0f;
+  background: transparent;
 }
 
 .monthTrendIntro {
